@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="QuICScript.js"></script>
+    <style>
+      H1,H3 {
+        text-align: center;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      input[type='number']{
+	width: 40px;	       
+      } 
+      input[type="text"]{
+	        width: 90%;
+      }
+
+      div {
+        width: 30%;
+	vertical-align: text-top;
+        margin: 10px auto;
+        display: inline-flex;
+        flex-direction: column;
+      } 
+      ul { display: inline;
+	      list-style-type: circle;
+	      margin:0;
+	      padding:0;
+      }
+
+      button {
+        width: 50%;
+        margin: 10px 0px 5px 0px;
+      }
+    </style>
+    <script>  
+    async function runQuICScript() 
+    {
+      var rc = document.getElementById("ret")
+      var Qnum = document.getElementById("numQubits")
+      var Qcir = document.getElementById("circuit")
+
+      resultstate= Module.ccall('QuICScript_run','string',['number','string'],[Qnum.value,Qcir.value]);
+   //   document.getElementById("tw").innerHTML = "<input type=\"text\" id=\"QuICState\" value="+resultstate+" readonly><br><br>";
+	document.getElementById("tw").innerHTML = "<textarea rows=\"10\" cols=\"1000\">" + resultstate + "</textarea>";
+      /*
+      const byteCharacters = atob(gifresult);
+  const byteArrays = [];
+  let sliceSize = 512;
+  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+    const slice = byteCharacters.slice(offset, offset + sliceSize);
+
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
+  }
+
+  const gifBlob = new Blob(byteArrays, {type: 'image/gif'});
+	
+//      const gifBlob = new Blob([atob(gifresult)], {type: 'image/gif'});
+	{
+       //    document.getElementById("tw").innerHTML = '<a href="https://twitter.com/share?ref_src=twsrc%5Etfw" class="twitter-share-button" data-show-count="false" data-size="large" data-via="tanteikg" data-text="I used #QuantumContracts to run my '+Qnum.value +' Qubit quantum circuit on the Polygon chain. #pQCee #BeQuantumReady &#129504; \n\n@0xPolygon ">Tweet</a>'
+       document.getElementById("tw").innerHTML = '<img id="image" width="200" height="200"/>';
+ 
+	document.querySelector("#image").src = URL.createObjectURL(gifBlob);
+//	image.src = URL.createObjectURL(gifBlob);
+
+	 Module._clearbuf(gifresult);
+            }
+     }
+	catch(err) {
+     		rc.innerText = err.message;
+		document.getElementById("tw").innerHTML = "";
+	}
+*/
+
+      Module._QuICScript_clearbuf(resultstate);
+   } 
+
+    function setChoice(selObj)
+    {
+      var value = selObj.value; 
+      var Qnum = document.getElementById("numQubits")
+      var Qcir = document.getElementById("circuit")
+      if (value == "Custom (for NFT)")
+      {
+        Qnum.value= 5;
+        Qcir.value = "";
+      }
+      else if (value == "Bell")
+      {
+        Qnum.value= 2;
+        Qcir.value = "HI,CN.";
+      }
+      else if (value == "GHZ")
+      {
+        Qnum.value= 3;
+        Qcir.value = "HII,CNI,ICN.";
+      }
+      else if (value == "Simon")
+      {
+        Qnum.value= 4;
+        Qcir.value = "HHII,CINI,CIIN,ICNI,ICIN,IImm,HHII,mmII.";
+      }
+      else if (value == "Grover2")
+      {
+        Qnum.value= 3;
+        Qcir.value = "HHI,IIX,IIH,III,CCN,III,IIH,IIX,HHI,XXI,IHI,CNI,IHI,XXI,HHI."; 
+      }
+      else if (value == "Grover3")
+      {
+        Qnum.value= 4;
+        Qcir.value = "HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI."; 
+      }
+      else if (value == "Shor21")
+      {
+        Qnum.value= 5;
+        Qcir.value = "HHHII,IICIN,ICIIN,IIINC,ICICN,IIINC,IIIIX,CIINC,IIIIX,IIINC,CIICN,IIINC,IIHII,ICpII,CItII,IHIII,CpIII,HIIII."; 
+      }
+      else if (value == "Shor15")
+      {
+        Qnum.value= 7;
+        Qcir.value = "HHHIIII,IICINII,IICIINI,IIICINI,ICINICI,IIICINI,IIIINIC,ICIICIN,HIIIIII,CPIIIII,IHIIIII,CITIIII,ICPIIII,IIHIIII.";
+      }
+      else
+      {
+        Qnum.value= 2;
+        Qcir.value = "HH.";
+      }
+
+    }
+    </script>
+    <title>QuICScript by pQCee </title>
+  </head>
+  <body>
+    <h1>QuICScript: Quantum in a Browser</h1>
+  <div>
+    <label for="circuit-list">Choose a circuit:</label>
+    <select name="choice" id="choice" onchange="setChoice(this)">
+    <option value="Custom" selected>Custom</option>
+    <option value="Bell">Bell State</option>
+    <option value="GHZ">GHZ 3 Qubit</option>
+    <option value="Simon">Simon s=11</option>
+    <option value="Grover2">Grover 2 Qubit</option>
+    <option value="Grover3">Grover 3 Qubit</option>
+    <option value="Shor21">Shor (factor 21)</option>
+    <option value="Shor15">Shor (factor 15)</option>
+    </select>
+    <p>
+    <small>
+    Number of Qubits: 1 to 8 
+    <ul>
+    Available Gates:
+    <li> <b>X,Y,Z</b> : Pauli-X,Y,Z gate </li>
+    <li> <b>H</b> : Hadamard gate </li>
+    <li> <b>CN</b> : Control Not / Toffoli gate</li>
+    <li> <b>P,T</b> : Phase shift &pi;/2 and &pi;/4 gate </li>
+    <li> <b>I,m</b> : Identity and measure gate </li>
+    <li> <b>,</b> : Intermediate delimiter </li>
+    <li> <b>.</b> : End of circuit </li>
+    </ul>
+
+    </small>
+  </div>	  
+  <div>
+    Number of Qubits: <input type="number" id="numQubits" min="1" max="8"/>
+    <p>
+    <label for="run">Enter Circuit:</label> <br />
+    <input type="text" id="circuit"  />
+    <button onclick="runQuICScript()">Run QuICScript</button>
+    <p>
+  </div>
+  <div>
+    <p>Result:&nbsp; <label id="ret"></p>
+    <div id=tw> </div>
+
+  </div>
+
+  <p>&nbsp;</p>
+  <small><small><small>
+			  <p>Copyright pQCee 2022-23. All rights reserved.&nbsp; For enquiries, please contact <a href="mailto:info@pqcee.com"> info@pqcee.com</p> </small></small></small>
+  </body>
+</html>
