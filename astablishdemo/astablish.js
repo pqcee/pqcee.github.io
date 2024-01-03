@@ -38,7 +38,8 @@ Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
     document.getElementById("btnCreateTable").onclick = createTable;
     document.getElementById("btnValidateWalletAddress").onclick = validateAddr;
-    document.getElementById("btnCreateMessage").onclick = createMessage;
+    document.getElementById("btnCreateSigningMessage").onclick = createMessage;
+    document.getElementById("btnLoadSimulatedData").onclick = loadSimData;
   }
 });
 
@@ -116,7 +117,7 @@ const M_TABLE_START_CELL = "".concat(M_TABLE_LEFT_COLUMN, M_TABLE_TOP_ROW);
 const M_TABLE_RIGHT_COLUMN = WS_RIGHT_COLUMN;
 
 /** Zero-indexed value for Crypto column of Main Table */
-//const M_TABLE_CRYPTO_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 1 - 1;
+// const M_TABLE_CRYPTO_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 1 - 1;
 
 /** Zero-indexed value for Wallet Address column of Main Table */
 const M_TABLE_ADDR_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 2 - 1;
@@ -133,6 +134,14 @@ const M_TABLE_PUBKEY_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 3 - 1;
 /** Zero-indexed value for Valid Wallet Address column of Main Table */
 const M_TABLE_VALID_WALLET_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 6 - 1;
 
+/** Default minimum number of rows in Comments Table */
+const C_TABLE_DEFAULT_ROWS = 10;
+
+/** Number of spacer rows from bottom of Main Table to start of Comments Table.
+ *  It is computed from adding two empty rows after the Main Table.
+ */
+const C_TABLE_SPACER_ROWS = 2;
+
 // =============
 // BUTTON EVENTS
 // =============
@@ -140,7 +149,9 @@ const M_TABLE_VALID_WALLET_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 6 - 1;
 function createTable() {
   Excel.run((context) => {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
-    setupAuditTableTemplate(selectedSheet, M_TABLE_DEFAULT_DATA_ROWS);
+    let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
+    const DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
+    setupAuditTableTemplate(selectedSheet, DATA_ROWS);
     return context.sync();
   });
 }
@@ -170,9 +181,22 @@ function validateAddr() {
 function createMessage() {
   Excel.run((context) => {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
+    let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
+    const DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
+    //setupMessageForSigning(selectedSheet, DATA_ROWS);
+    return context.sync();
+  });
+}
 
-    // TODO: (1) Check/initialise MSG PARAMS Table, (2) Generate Message in Main Table
-
+/**
+ * Generate and load simulated data into empty Audit Table for demo purpose.
+ */
+function loadSimData() {
+  Excel.run((context) => {
+    let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
+    let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
+    const DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
+    generateSimulatedData(selectedSheet, DATA_ROWS);
     return context.sync();
   });
 }
@@ -247,6 +271,36 @@ function setupAuditTableTemplate(objWS, intDataRows) {
     objRangeBorderCollection.getItem("EdgeBottom").style = STR_LINE;
     objRangeBorderCollection.getItem("InsideHorizontal").style = STR_LINE;
     objRangeBorderCollection.getItem("InsideVertical").style = STR_LINE;
+  }
+
+  /**
+   * Returns today's date in dd-Mmm-yyyy format.
+   *
+   * @inner
+   * @returns {string} Today's date. E.g., "20-Jan-2023".
+   */
+  function todayDate() {
+    const MONTHS = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    let today = new Date();
+    let dd = today.getDate().toString().padStart(2, "0");
+    let Mmm = MONTHS[today.getMonth()];
+    let yyyy = today.getFullYear();
+
+    return "".concat(dd, "-", Mmm, "-", yyyy);
   }
 
   //
@@ -337,6 +391,9 @@ function setupAuditTableTemplate(objWS, intDataRows) {
     list: { inCellDropDown: true, source: "BTC,ETH" },
   };
 
+  // MAIN TABLE: DATA 5th Column (Message)
+  
+
   // MAIN TABLE: VALIDATION COLUMNS (Right 2 columns)
   const M_TABLE_START_VAL = "".concat("G", M_TABLE_2ND_ROW);
   const M_TABLE_END_VAL = M_TABLE_END_CELL;
@@ -383,6 +440,9 @@ function setupAuditTableTemplate(objWS, intDataRows) {
   objWS.getRange(P_TABLE_HDR_RANGE).format.horizontalAlignment = "Center";
   const MSG_PARAMS = [["Seq. No."], ["Client Name"], ["Audit Date"]];
   objWS.getRange("G3:G5").values = MSG_PARAMS;
+  objWS.getRange("H3").values = [[Math.floor(Math.random() * 9000) + 1000]];
+  objWS.getRange("H4").values = [["Company A"]];
+  objWS.getRange("H5").values = [[todayDate()]];
   addBorderLines(objWS.getRange("G2:H5"));
   objWS.getRange("H3:H5").numberFormat = "@";
 
@@ -391,7 +451,7 @@ function setupAuditTableTemplate(objWS, intDataRows) {
   // =====================================
   // AUDIT COMMENTS TABLE: HEADER
   const C_TABLE_TOP_ROW = M_TABLE_BOTTOM_ROW + 2;
-  const C_TABLE_BOTTOM_ROW = C_TABLE_TOP_ROW + 10;
+  const C_TABLE_BOTTOM_ROW = C_TABLE_TOP_ROW + C_TABLE_DEFAULT_ROWS;
   const C_TABLE_LEFT_COLUMN = M_TABLE_LEFT_COLUMN;
   const C_TABLE_RIGHT_COLUMN = M_TABLE_RIGHT_COLUMN;
   const C_TABLE_START_HDR = "".concat(C_TABLE_LEFT_COLUMN, C_TABLE_TOP_ROW);
@@ -457,11 +517,76 @@ function setupAuditTableTemplate(objWS, intDataRows) {
 }
 
 /**
+ * Generate required rows of simulated data for inserting into the empty Audit
+ * Worksheet. This function assumes the Audit Worksheet table layout has already
+ * been set up and will overwrite contents of the Main Table and Message Params
+ * Table.
+ *
+ * @param {Excel.Worksheet} objWS - Target worksheet to process.
+ * @param {number} intDataRows - Number of rows of audit data to be filled in Main Table.
+ */
+function generateSimulatedData(objWS, intDataRows) {
+  // Derive cell range of Message Params Table
+
+  
+  // Derive cell range of Main Table
+  /*
+  const M_TABLE_DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
+  const M_TABLE_BOTTOM_ROW = M_TABLE_TOP_ROW + M_TABLE_DATA_ROWS;
+  const C_TABLE_TOP_ROW = M_TABLE_BOTTOM_ROW + C_TABLE_SPACER_ROWS;
+  const C_TABLE_BOTTOM_ROW = C_TABLE_TOP_ROW + C_TABLE_DEFAULT_ROWS;
+  const WS_BOTTOM_ROW = C_TABLE_BOTTOM_ROW;
+  const WS_END_CELL = "".concat(WS_RIGHT_COLUMN, WS_BOTTOM_ROW);
+  const WS_RANGE = "".concat(WS_START_CELL, ":", WS_END_CELL);
+  */
+  
+}
+
+/**
  * Validate public key belongs to the wallet address in MAIN TABLE
  *
  * @param {Excel.Range} objDataRange - Cell range of data in Main Table.
  */
 function validateWalletAddress(objDataRange) {
+  /**
+   * Performs sanity checks on the format of the public key associated with a
+   * Bitcoin address. Checks for valid lengths and valid prefixes used in both
+   * compressed and uncompressed public key forms.
+   *
+   * @param {Uint8Array} publicKey - Byte array of a public key associated with a Bitcoin address.
+   * @inner
+   * @returns {boolean} True when public key has valid length and prefix; false otherwise.
+   */
+  function isBTCPublicKeyValidFormat(publicKey) {
+    // Compressed public key is 33 bytes long and has either 0x02 or 0x03 prefix
+    const BTC_COMP_PUBKEY_LENGTH = 33;
+    const BTC_COMP_PUBKEY_PREFIX_EVEN = 0x02;
+    const BTC_COMP_PUBKEY_PREFIX_ODD = 0x03;
+
+    // Uncompressed public key is 65 bytes long and has 0x04 prefix
+    const BTC_FULL_PUBKEY_LENGTH = 65;
+    const BTC_FULL_PUBKEY_PREFIX = 0x04;
+
+    let isValidFormat = false;
+
+    if (publicKey.length === BTC_COMP_PUBKEY_LENGTH) {
+      switch (publicKey[0]) {
+        case BTC_COMP_PUBKEY_PREFIX_EVEN:
+        case BTC_COMP_PUBKEY_PREFIX_ODD:
+          isValidFormat = true;
+          break;
+        default:
+          isValidFormat = false;
+      }
+    } else if (publicKey.length === BTC_FULL_PUBKEY_LENGTH) {
+      isValidFormat = publicKey[0] === BTC_FULL_PUBKEY_PREFIX;
+    } else {
+      isValidFormat = false;
+    }
+
+    return isValidFormat;
+  }
+
   // Create new array to populate updated data
   // I observed that Office JS context only updates the values back to the
   // Excel worksheet when a new array that contains entire range values in the
@@ -474,12 +599,31 @@ function validateWalletAddress(objDataRange) {
 
     // Check if supplied address === p2pkh(public key)
     if (isWalletAddrFilled && isPublicKeyFilled) {
-      let pubkey = Buffer.from(data[row][M_TABLE_PUBKEY_COL], "hex");
-      let { address } = bitcoinjs.payments.p2pkh({ pubkey });
-      let isValidWallet = data[row][M_TABLE_ADDR_COL] === address;
-      data[row][M_TABLE_VALID_WALLET_COL] = isValidWallet.toString();
+      // Internally prepend '0' if hex string has odd number of characters
+      let pubkeyString = data[row][M_TABLE_PUBKEY_COL];
+      if (pubkeyString.length % 2 === 1) {
+        pubkeyString = "".concat("0", pubkeyString);
+      }
+
+      //
+      // TODO: check if pubKeyString contains only hexadecimal characters
+      //
+
+      // Wallet Validation Workflow
+      // 1. "X PubKey" appears when public key is invalid
+      // 2. "false" appears when public key is valid, wallet address is wrong
+      // 3. "true" appears when both public key and wallet address are valid
+      let pubkey = Buffer.from(pubkeyString, "hex");
+      if (isBTCPublicKeyValidFormat(pubkey)) {
+        let { address } = bitcoinjs.payments.p2pkh({ pubkey });
+        let isValidWallet = data[row][M_TABLE_ADDR_COL] === address;
+        data[row][M_TABLE_VALID_WALLET_COL] = isValidWallet.toString();
+      } else {
+        data[row][M_TABLE_VALID_WALLET_COL] = "X PubKey";
+      }
     } else {
-      // Do nothing and move on to next row
+      // Clear Valid Wallet cell if either public key or wallet address is empty
+      data[row][M_TABLE_VALID_WALLET_COL] = "";
     }
   }
 
