@@ -93,6 +93,39 @@ const I_TABLE_END_CELL = "".concat(WS_LEFT_COLUMN, INSTRUCTIONS.length);
 /** Cell range of Instructions Table */
 const I_TABLE_RANGE = "".concat(I_TABLE_START_CELL, ":", I_TABLE_END_CELL);
 
+/** Right column of MESSAGE PARAMS Table */
+const P_TABLE_RIGHT_COLUMN = WS_RIGHT_COLUMN;
+
+/** Zero-index value for right column of MESSAGE PARAMS Table */
+const P_TABLE_RIGHT_CNUM = convertColToInt(P_TABLE_RIGHT_COLUMN) - 1;
+
+/** Zero-index value for left column of MESSAGE PARAMS Table */
+const P_TABLE_LEFT_CNUM = P_TABLE_RIGHT_CNUM - 1;
+
+/** Left column of MESSAGE PARAMS Table */
+const P_TABLE_LEFT_COLUMN = convertIntToCol(P_TABLE_LEFT_CNUM + 1);
+
+/** Top-row of MESSAGE PARAMS Table */
+const P_TABLE_TOP_ROW = WS_TOP_ROW + 1;
+
+/** Row number of Sequence Number in MESSAGE PARAMS Table */
+const P_TABLE_SEQNUM_ROW = P_TABLE_TOP_ROW + 1;
+
+/** Cell range of Sequence Number in MESSAGE PARAMS Table */
+const P_TABLE_SEQNUM_CELL = "".concat(P_TABLE_RIGHT_COLUMN, P_TABLE_SEQNUM_ROW);
+
+/** Row number of Client Name in MESSAGE PARAMS Table */
+const P_TABLE_CLIENT_ROW = P_TABLE_SEQNUM_ROW + 1;
+
+/** Cell range of Client Name in MESSAGE PARAMS Table */
+const P_TABLE_CLIENT_CELL = "".concat(P_TABLE_RIGHT_COLUMN, P_TABLE_CLIENT_ROW);
+
+/** Row number of Audit Date in MESSAGE PARAMS Table */
+const P_TABLE_DATE_ROW = P_TABLE_CLIENT_ROW + 1;
+
+/** Cell range of Audit Date in MESSAGE PARAMS Table */
+const P_TABLE_DATE_CELL = "".concat(P_TABLE_RIGHT_COLUMN, P_TABLE_DATE_ROW);
+
 /** Number of spacer rows from top of worksheet to start of Main Table.
  *  It is computed from adding one empty row after the Instructions Table.
  */
@@ -120,19 +153,31 @@ const M_TABLE_RIGHT_COLUMN = WS_RIGHT_COLUMN;
 // const M_TABLE_CRYPTO_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 1 - 1;
 
 /** Zero-indexed value for Wallet Address column of Main Table */
-const M_TABLE_ADDR_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 2 - 1;
+const M_TABLE_ADDR_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 2 - 1;
+
+/** Wallet Address column of Main Table */
+const M_TABLE_ADDR_COLUMN = convertIntToCol(M_TABLE_ADDR_CNUM + 1);
 
 /** Zero-indexed value for Public Key column of Main Table */
-const M_TABLE_PUBKEY_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 3 - 1;
+const M_TABLE_PUBKEY_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 3 - 1;
+
+/** Public Key column of Main Table */
+const M_TABLE_PUBKEY_COLUMN = convertIntToCol(M_TABLE_PUBKEY_CNUM + 1);
 
 /** Zero-indexed value for Message column of Main Table */
-//const M_TABLE_MSG_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 4 - 1;
+const M_TABLE_MSG_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 4 - 1;
+
+/** Message column of Main Table */
+const M_TABLE_MSG_COLUMN = convertIntToCol(M_TABLE_MSG_CNUM + 1);
 
 /** Zero-indexed value for Digital Signature column of Main Table */
 //const M_TABLE_SIG_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 5 - 1;
 
 /** Zero-indexed value for Valid Wallet Address column of Main Table */
-const M_TABLE_VALID_WALLET_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 6 - 1;
+const M_TABLE_VAL_WALLET_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 6 - 1;
+
+/** Valid Wallet Address column of Main Table */
+const M_TABLE_VWALLET_COLUMN = convertIntToCol(M_TABLE_VAL_WALLET_CNUM + 1);
 
 /** Default minimum number of rows in Comments Table */
 const C_TABLE_DEFAULT_ROWS = 10;
@@ -141,6 +186,16 @@ const C_TABLE_DEFAULT_ROWS = 10;
  *  It is computed from adding two empty rows after the Main Table.
  */
 const C_TABLE_SPACER_ROWS = 2;
+
+// ===========================
+// GLOBAL - INTERNAL CONSTANTS
+// ===========================
+
+/** Regular Expression string to validate hexadecimal strings */
+const regexHex = new RegExp("^[0-9a-fA-F]+$");
+
+/** Regular Expression string to validate base58 strings */
+const regexBase58 = new RegExp("^[1-9A-HJ-NP-Za-km-z]+$");
 
 // =============
 // BUTTON EVENTS
@@ -168,12 +223,24 @@ function validateAddr() {
     const DATA_END_CELL = "".concat(M_TABLE_RIGHT_COLUMN, BOTTOM_ROW);
     const DATA_RANGE = "".concat(DATA_START_CELL, ":", DATA_END_CELL);
 
-    // Load data portion of Main Table to proxy object in Office JS
-    let objDataRange = selectedSheet.getRange(DATA_RANGE);
-    objDataRange.load("values");
+    // Derive cell range of Valid Wallet Address Column
+    const VW_START_CELL = "".concat(M_TABLE_VWALLET_COLUMN, M_TABLE_2ND_ROW);
+    const VW_END_CELL = "".concat(M_TABLE_VWALLET_COLUMN, BOTTOM_ROW);
+    const VW_RANGE = "".concat(VW_START_CELL, ":", VW_END_CELL);
+
+    // Erase Valid Wallet Address Column first in one batch call to Office JS.
+    // Rationale is to erase validation column in case subsequent validation
+    // logic crashes w/o any feedback of crash to user.
+    let vwDataRange = selectedSheet.getRange(VW_RANGE);
+    vwDataRange.clear("Contents");
     return context.sync().then(() => {
-      validateWalletAddress(objDataRange);
-      return context.sync();
+      // Load data portion of Main Table to proxy object in Office JS
+      let objDataRange = selectedSheet.getRange(DATA_RANGE);
+      objDataRange.load("values");
+      return context.sync().then(() => {
+        validateWalletAddress(objDataRange);
+        return context.sync();
+      });
     });
   });
 }
@@ -183,8 +250,43 @@ function createMessage() {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
     let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
     const DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
-    //setupMessageForSigning(selectedSheet, DATA_ROWS);
-    return context.sync();
+
+    // Derive cell range of message parameters
+    const PARAMS_RANGE = "".concat(P_TABLE_SEQNUM_CELL, ":", P_TABLE_DATE_CELL);
+    let paramsDataRange = selectedSheet.getRange(PARAMS_RANGE);
+    paramsDataRange.load("values");
+    return context.sync().then(() => {
+      // Retrieve message parameters from worksheet
+      let paramsData = paramsDataRange.values.map((arr) => arr.slice());
+      let seqNumSrc = paramsData[P_TABLE_SEQNUM_ROW - P_TABLE_SEQNUM_ROW][0];
+      let clientSrc = paramsData[P_TABLE_CLIENT_ROW - P_TABLE_SEQNUM_ROW][0];
+      let dateSrc = paramsData[P_TABLE_DATE_ROW - P_TABLE_SEQNUM_ROW][0];
+
+      // Build require message for signing
+      let msg = "".concat(
+        "[",
+        seqNumSrc,
+        "]",
+        " ",
+        clientSrc,
+        " owns wallet on ",
+        dateSrc,
+        ".",
+      );
+
+      // Update message back into MAIN TABLE
+      const MSG_START_CELL = "".concat(M_TABLE_MSG_COLUMN, M_TABLE_2ND_ROW);
+      const BOTTOM_ROW = M_TABLE_2ND_ROW + DATA_ROWS - 1;
+      const MSG_END_CELL = "".concat(M_TABLE_MSG_COLUMN, BOTTOM_ROW);
+      const MSG_RANGE = "".concat(MSG_START_CELL, ":", MSG_END_CELL);
+      let msgDataRange = selectedSheet.getRange(MSG_RANGE);
+      let msgSrc = new Array(DATA_ROWS);
+      for (let row = 0; row < DATA_ROWS; row++) {
+        msgSrc[row] = [msg];
+      }
+      msgDataRange.values = msgSrc;
+      return context.sync();
+    });
   });
 }
 
@@ -204,7 +306,6 @@ function loadSimData() {
 // ================
 // HELPER FUNCTIONS
 // ================
-
 /**
  * Convert Excel column alphabet to column number.
  *
@@ -392,7 +493,6 @@ function setupAuditTableTemplate(objWS, intDataRows) {
   };
 
   // MAIN TABLE: DATA 5th Column (Message)
-  
 
   // MAIN TABLE: VALIDATION COLUMNS (Right 2 columns)
   const M_TABLE_START_VAL = "".concat("G", M_TABLE_2ND_ROW);
@@ -427,9 +527,6 @@ function setupAuditTableTemplate(objWS, intDataRows) {
   // ==============================================
   // MESSAGE PARAMS TABLE AT TOP-RIGHT OF WORKSHEET
   // ==============================================
-  const P_TABLE_RIGHT_COLUMN = WS_RIGHT_COLUMN;
-  const P_TABLE_TOP_ROW = WS_TOP_ROW + 1;
-  const P_TABLE_LEFT_COLUMN = "G";
   const P_TABLE_START_HDR = "".concat(P_TABLE_LEFT_COLUMN, P_TABLE_TOP_ROW);
   const P_TABLE_END_HDR = "".concat(P_TABLE_RIGHT_COLUMN, P_TABLE_TOP_ROW);
   const P_TABLE_HDR_RANGE = "".concat(P_TABLE_START_HDR, ":", P_TABLE_END_HDR);
@@ -440,9 +537,11 @@ function setupAuditTableTemplate(objWS, intDataRows) {
   objWS.getRange(P_TABLE_HDR_RANGE).format.horizontalAlignment = "Center";
   const MSG_PARAMS = [["Seq. No."], ["Client Name"], ["Audit Date"]];
   objWS.getRange("G3:G5").values = MSG_PARAMS;
-  objWS.getRange("H3").values = [[Math.floor(Math.random() * 9000) + 1000]];
-  objWS.getRange("H4").values = [["Company A"]];
-  objWS.getRange("H5").values = [[todayDate()]];
+  objWS.getRange(P_TABLE_SEQNUM_CELL).values = [
+    [Math.floor(Math.random() * 9000) + 1000],
+  ];
+  objWS.getRange(P_TABLE_CLIENT_CELL).values = [["Company A"]];
+  objWS.getRange(P_TABLE_DATE_CELL).values = [[todayDate()]];
   addBorderLines(objWS.getRange("G2:H5"));
   objWS.getRange("H3:H5").numberFormat = "@";
 
@@ -527,8 +626,6 @@ function setupAuditTableTemplate(objWS, intDataRows) {
  */
 function generateSimulatedData(objWS, intDataRows) {
   // Derive cell range of Message Params Table
-
-  
   // Derive cell range of Main Table
   /*
   const M_TABLE_DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
@@ -539,7 +636,6 @@ function generateSimulatedData(objWS, intDataRows) {
   const WS_END_CELL = "".concat(WS_RIGHT_COLUMN, WS_BOTTOM_ROW);
   const WS_RANGE = "".concat(WS_START_CELL, ":", WS_END_CELL);
   */
-  
 }
 
 /**
@@ -587,43 +683,66 @@ function validateWalletAddress(objDataRange) {
     return isValidFormat;
   }
 
+  // Constants
+  const ERROR_EMPTY = "";
+  const ERROR_PUBKEY = "X PubKey";
+  const ERROR_WALLET = "X Wallet";
+
   // Create new array to populate updated data
   // I observed that Office JS context only updates the values back to the
   // Excel worksheet when a new array that contains entire range values in the
   // Excel.Range object are assigned to Excel.Range.values property.
   let data = objDataRange.values.map((arr) => arr.slice());
 
+  // Check every wallet address === p2pkh(public key)
   for (let row = 0; row < data.length; row++) {
-    let isWalletAddrFilled = data[row][M_TABLE_ADDR_COL] !== "";
-    let isPublicKeyFilled = data[row][M_TABLE_PUBKEY_COL] !== "";
+    let walletAddrSrc = data[row][M_TABLE_ADDR_CNUM];
+    let publicKeySrc = data[row][M_TABLE_PUBKEY_CNUM];
 
-    // Check if supplied address === p2pkh(public key)
-    if (isWalletAddrFilled && isPublicKeyFilled) {
-      // Internally prepend '0' if hex string has odd number of characters
-      let pubkeyString = data[row][M_TABLE_PUBKEY_COL];
-      if (pubkeyString.length % 2 === 1) {
-        pubkeyString = "".concat("0", pubkeyString);
-      }
+    // Syntax Validation for wallet address & public key
+    // 1. Ensure both wallet address and public key are not empty
+    // 2. Ensure wallet address conforms to base58, otherwise "X Wallet" appears
+    // 3. Ensure public key conforms to base16, otherwise "X PubKey" appears
+    let walletAddrIsFilled = walletAddrSrc !== "";
+    let publicKeyIsFilled = publicKeySrc !== "";
 
-      //
-      // TODO: check if pubKeyString contains only hexadecimal characters
-      //
+    if (walletAddrIsFilled && publicKeyIsFilled) {
+      let walletAddrIsBase58 = regexBase58.test(walletAddrSrc);
 
-      // Wallet Validation Workflow
-      // 1. "X PubKey" appears when public key is invalid
-      // 2. "false" appears when public key is valid, wallet address is wrong
-      // 3. "true" appears when both public key and wallet address are valid
-      let pubkey = Buffer.from(pubkeyString, "hex");
-      if (isBTCPublicKeyValidFormat(pubkey)) {
-        let { address } = bitcoinjs.payments.p2pkh({ pubkey });
-        let isValidWallet = data[row][M_TABLE_ADDR_COL] === address;
-        data[row][M_TABLE_VALID_WALLET_COL] = isValidWallet.toString();
+      if (walletAddrIsBase58) {
+        let publicKeyIsHex = regexHex.test(publicKeySrc);
+
+        if (publicKeyIsHex) {
+          // Internally prepend '0' if hex string has odd number of characters
+          if (publicKeySrc.length % 2 === 1) {
+            publicKeySrc = "".concat("0", publicKeySrc);
+          }
+
+          // Wallet Validation Workflow
+          // 1. "X PubKey" appears when public key is invalid
+          // 2. "false" appears when public key is valid, wallet address is wrong
+          // 3. "true" appears when both public key and wallet address are valid
+          let pubkey = Buffer.from(publicKeySrc, "hex");
+
+          if (isBTCPublicKeyValidFormat(pubkey)) {
+            let { address } = bitcoinjs.payments.p2pkh({ pubkey });
+            let walletAddrIsValid = walletAddrSrc === address;
+            data[row][M_TABLE_VAL_WALLET_CNUM] = walletAddrIsValid.toString();
+          } else {
+            // Public key does not conform to bitcoin ECDSA public key format
+            data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_PUBKEY;
+          }
+        } else {
+          // Public key is not a base16 string
+          data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_PUBKEY;
+        }
       } else {
-        data[row][M_TABLE_VALID_WALLET_COL] = "X PubKey";
+        // Wallet is not a base58 string
+        data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_WALLET;
       }
     } else {
-      // Clear Valid Wallet cell if either public key or wallet address is empty
-      data[row][M_TABLE_VALID_WALLET_COL] = "";
+      // Wallet address or Public Key is empty
+      data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_EMPTY;
     }
   }
 
