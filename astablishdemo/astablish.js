@@ -29,6 +29,8 @@
  * Licensor: pQCee Pte Ltd
  */
 
+// cspell:ignore bitcoinjs secp
+
 // =======================================
 // REGISTER EVENTS FOR HTML GUI COMPONENTS
 // =======================================
@@ -36,9 +38,13 @@
 Office.onReady((info) => {
   // Check that we loaded into Excel
   if (info.host === Office.HostType.Excel) {
+    // Auditor Actions
     document.getElementById("btnCreateTable").onclick = createTable;
     document.getElementById("btnValidateWalletAddress").onclick = validateAddr;
     document.getElementById("btnCreateSigningMessage").onclick = createMessage;
+    document.getElementById("btnValidateSignature").onclick = validateSignature;
+
+    // Demo Options
     document.getElementById("btnLoadSimulatedData").onclick = loadSimData;
   }
 });
@@ -47,9 +53,9 @@ Office.onReady((info) => {
 // GLOBAL - ASTABLISH BUNDLE EXPORTS
 // =================================
 const Buffer = astablishBundle.Buffer;
-const ECPairFactory = astablishBundle.ECPair.ECPairFactory;
 const bitcoinjs = astablishBundle.bitcoinjs;
 const secp256k1 = astablishBundle.secp256k1;
+const ECPair = astablishBundle.ECPair.ECPairFactory(secp256k1);
 
 // ==========================================
 // GLOBAL - AUDIT TEMPLATE WORKSHEET SETTINGS
@@ -171,13 +177,22 @@ const M_TABLE_MSG_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 4 - 1;
 const M_TABLE_MSG_COLUMN = convertIntToCol(M_TABLE_MSG_CNUM + 1);
 
 /** Zero-indexed value for Digital Signature column of Main Table */
-//const M_TABLE_SIG_COL = convertColToInt(M_TABLE_LEFT_COLUMN) + 5 - 1;
+const M_TABLE_SIG_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 5 - 1;
+
+/** Digital Signature column of Main Table */
+const M_TABLE_SIG_COLUMN = convertIntToCol(M_TABLE_SIG_CNUM + 1);
 
 /** Zero-indexed value for Valid Wallet Address column of Main Table */
 const M_TABLE_VAL_WALLET_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 6 - 1;
 
 /** Valid Wallet Address column of Main Table */
 const M_TABLE_VWALLET_COLUMN = convertIntToCol(M_TABLE_VAL_WALLET_CNUM + 1);
+
+/** Zero-index value for Verified Signature column of Main Table */
+const M_TABLE_VERSIG_CNUM = convertColToInt(M_TABLE_LEFT_COLUMN) + 7 - 1;
+
+/** Verified Signature column of Main Table */
+const M_TABLE_VERSIG_COLUMN = convertIntToCol(M_TABLE_VERSIG_CNUM + 1);
 
 /** Default minimum number of rows in Comments Table */
 const C_TABLE_DEFAULT_ROWS = 10;
@@ -290,6 +305,40 @@ function createMessage() {
   });
 }
 
+function validateSignature() {
+  Excel.run((context) => {
+    let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
+
+    // Derive cell range of data section in Main Table
+    const DATA_START_CELL = "".concat(M_TABLE_LEFT_COLUMN, M_TABLE_2ND_ROW);
+    let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
+    const DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
+    const BOTTOM_ROW = M_TABLE_2ND_ROW + DATA_ROWS - 1;
+    const DATA_END_CELL = "".concat(M_TABLE_RIGHT_COLUMN, BOTTOM_ROW);
+    const DATA_RANGE = "".concat(DATA_START_CELL, ":", DATA_END_CELL);
+
+    // Derive cell range of Valid Signature Address Column
+    const VS_START_CELL = "".concat(M_TABLE_VERSIG_COLUMN, M_TABLE_2ND_ROW);
+    const VS_END_CELL = "".concat(M_TABLE_VERSIG_COLUMN, BOTTOM_ROW);
+    const VS_RANGE = "".concat(VS_START_CELL, ":", VS_END_CELL);
+
+    // Erase Verified Signature column first in one batch call to Office JS.
+    // Rationale is to erase verification column in case subsequent verification
+    // logic crashes w/o any feedback of crash to user.
+    let vsDataRange = selectedSheet.getRange(VS_RANGE);
+    vsDataRange.clear("Contents");
+    return context.sync().then(() => {
+      // Load data portion of Main Table to proxy object in Office JS
+      let objDataRange = selectedSheet.getRange(DATA_RANGE);
+      objDataRange.load("values");
+      return context.sync().then(() => {
+        verifySignature(objDataRange);
+        return context.sync();
+      });
+    });
+  });
+}
+
 /**
  * Generate and load simulated data into empty Audit Table for demo purpose.
  */
@@ -333,6 +382,44 @@ function convertIntToCol(intColNumber) {
   // Similar to convertColToInt(), safe to assume developer does not pass in invalid values.
   const ASCII_UPPER_CASE_A = "A".charCodeAt(0);
   return String.fromCharCode(intColNumber + ASCII_UPPER_CASE_A - 1);
+}
+
+/**
+ * Performs sanity checks on the format of the public key associated with a
+ * Bitcoin address. Checks for valid lengths and valid prefixes used in both
+ * compressed and uncompressed public key forms.
+ *
+ * @param {Uint8Array} publicKey - Byte array of a public key associated with a Bitcoin address.
+ * @returns {boolean} True when public key has valid length and prefix; false otherwise.
+ */
+function isBTCPublicKeyValidFormat(publicKey) {
+  // Compressed public key is 33 bytes long and has either 0x02 or 0x03 prefix
+  const BTC_COMP_PUBKEY_LENGTH = 33;
+  const BTC_COMP_PUBKEY_PREFIX_EVEN = 0x02;
+  const BTC_COMP_PUBKEY_PREFIX_ODD = 0x03;
+
+  // Uncompressed public key is 65 bytes long and has 0x04 prefix
+  const BTC_FULL_PUBKEY_LENGTH = 65;
+  const BTC_FULL_PUBKEY_PREFIX = 0x04;
+
+  let isValidFormat = false;
+
+  if (publicKey.length === BTC_COMP_PUBKEY_LENGTH) {
+    switch (publicKey[0]) {
+      case BTC_COMP_PUBKEY_PREFIX_EVEN:
+      case BTC_COMP_PUBKEY_PREFIX_ODD:
+        isValidFormat = true;
+        break;
+      default:
+        isValidFormat = false;
+    }
+  } else if (publicKey.length === BTC_FULL_PUBKEY_LENGTH) {
+    isValidFormat = publicKey[0] === BTC_FULL_PUBKEY_PREFIX;
+  } else {
+    isValidFormat = false;
+  }
+
+  return isValidFormat;
 }
 
 /**
@@ -625,17 +712,7 @@ function setupAuditTableTemplate(objWS, intDataRows) {
  * @param {number} intDataRows - Number of rows of audit data to be filled in Main Table.
  */
 function generateSimulatedData(objWS, intDataRows) {
-  // Derive cell range of Message Params Table
-  // Derive cell range of Main Table
-  /*
-  const M_TABLE_DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
-  const M_TABLE_BOTTOM_ROW = M_TABLE_TOP_ROW + M_TABLE_DATA_ROWS;
-  const C_TABLE_TOP_ROW = M_TABLE_BOTTOM_ROW + C_TABLE_SPACER_ROWS;
-  const C_TABLE_BOTTOM_ROW = C_TABLE_TOP_ROW + C_TABLE_DEFAULT_ROWS;
-  const WS_BOTTOM_ROW = C_TABLE_BOTTOM_ROW;
-  const WS_END_CELL = "".concat(WS_RIGHT_COLUMN, WS_BOTTOM_ROW);
-  const WS_RANGE = "".concat(WS_START_CELL, ":", WS_END_CELL);
-  */
+  // TODO - generate data for columns B, C, D, F
 }
 
 /**
@@ -644,45 +721,6 @@ function generateSimulatedData(objWS, intDataRows) {
  * @param {Excel.Range} objDataRange - Cell range of data in Main Table.
  */
 function validateWalletAddress(objDataRange) {
-  /**
-   * Performs sanity checks on the format of the public key associated with a
-   * Bitcoin address. Checks for valid lengths and valid prefixes used in both
-   * compressed and uncompressed public key forms.
-   *
-   * @param {Uint8Array} publicKey - Byte array of a public key associated with a Bitcoin address.
-   * @inner
-   * @returns {boolean} True when public key has valid length and prefix; false otherwise.
-   */
-  function isBTCPublicKeyValidFormat(publicKey) {
-    // Compressed public key is 33 bytes long and has either 0x02 or 0x03 prefix
-    const BTC_COMP_PUBKEY_LENGTH = 33;
-    const BTC_COMP_PUBKEY_PREFIX_EVEN = 0x02;
-    const BTC_COMP_PUBKEY_PREFIX_ODD = 0x03;
-
-    // Uncompressed public key is 65 bytes long and has 0x04 prefix
-    const BTC_FULL_PUBKEY_LENGTH = 65;
-    const BTC_FULL_PUBKEY_PREFIX = 0x04;
-
-    let isValidFormat = false;
-
-    if (publicKey.length === BTC_COMP_PUBKEY_LENGTH) {
-      switch (publicKey[0]) {
-        case BTC_COMP_PUBKEY_PREFIX_EVEN:
-        case BTC_COMP_PUBKEY_PREFIX_ODD:
-          isValidFormat = true;
-          break;
-        default:
-          isValidFormat = false;
-      }
-    } else if (publicKey.length === BTC_FULL_PUBKEY_LENGTH) {
-      isValidFormat = publicKey[0] === BTC_FULL_PUBKEY_PREFIX;
-    } else {
-      isValidFormat = false;
-    }
-
-    return isValidFormat;
-  }
-
   // Constants
   const ERROR_EMPTY = "";
   const ERROR_PUBKEY = "X PubKey";
@@ -719,7 +757,7 @@ function validateWalletAddress(objDataRange) {
           }
 
           // Wallet Validation Workflow
-          // 1. "X PubKey" appears when public key is invalid
+          // 1. "X PubKey" appears when public key format is invalid
           // 2. "false" appears when public key is valid, wallet address is wrong
           // 3. "true" appears when both public key and wallet address are valid
           let pubkey = Buffer.from(publicKeySrc, "hex");
@@ -743,6 +781,100 @@ function validateWalletAddress(objDataRange) {
     } else {
       // Wallet address or Public Key is empty
       data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_EMPTY;
+    }
+  }
+
+  // Update data in Main Table
+  objDataRange.values = data;
+}
+
+/**
+ * Verify signature of message comes from public key in MAIN TABLE
+ *
+ * @param {Excel.Range} objDataRange - Cell range of data in Main Table.
+ */
+function verifySignature(objDataRange) {
+  // Constants
+  const ERROR_EMPTY = "";
+  const ERROR_PUBKEY = "X PubKey";
+  const ERROR_SIGNATURE = "X Sig";
+
+  // Create new array to populate updated data
+  // I observed that Office JS context only updates the values back to the
+  // Excel worksheet when a new array that contains entire range values in the
+  // Excel.Range object are assigned to Excel.Range.values property.
+  let data = objDataRange.values.map((arr) => arr.slice());
+
+  // Check every signature === ecdsa-secp256k1(msg,pubkey)
+  for (let row = 0; row < data.length; row++) {
+    let publicKeySrc = data[row][M_TABLE_PUBKEY_CNUM];
+    let msgSrc = data[row][M_TABLE_MSG_CNUM];
+    let sigSrc = data[row][M_TABLE_SIG_CNUM];
+
+    // Syntax Validation for public key, message & digital signature
+    // 1. Ensure all 3 fields are not empty
+    // 2. Ensure public key conforms to base16, otherwise "X PubKey" appears
+    // 3. Ensure digital signature conforms to base16, otherwise "X Sig" appears
+    let publicKeyIsFilled = publicKeySrc !== "";
+    let msgIsFilled = msgSrc !== "";
+    let sigIsFilled = sigSrc !== "";
+
+    if (publicKeyIsFilled && msgIsFilled && sigIsFilled) {
+      let publicKeyIsHex = regexHex.test(publicKeySrc);
+
+      if (publicKeyIsHex) {
+        let sigIsHex = regexHex.test(sigSrc);
+
+        if (sigIsHex) {
+          // Internally prepend '0' if hex string has odd number of characters
+          if (publicKeySrc.length % 2 === 1) {
+            publicKeySrc = "".concat("0", publicKeySrc);
+          }
+
+          if (sigSrc.length % 2 === 1) {
+            sigSrc = "".concat("0", sigSrc);
+          }
+
+          // Digital Signature Verification Workflow
+          // 1. "X PubKey" appears when public key format is invalid
+          // 2. "X Sig" appears when signature DER format is invalid
+          // 3. "false" appears when public key is valid, signature is invalid
+          // 4. "true" appears when both public key and signature are valid
+          let pubKeyBuf = Buffer.from(publicKeySrc, "hex");
+
+          if (isBTCPublicKeyValidFormat(pubKeyBuf)) {
+            let resultStr = "";
+            const hashBuf = bitcoinjs.crypto.sha256(Buffer.from(msgSrc));
+            const sigDERBuf = Buffer.from(sigSrc, "hex");
+
+            // bitcoinjs.script.signature.decode() may throw Error due to
+            // invalid Hash Type flag at end of DER string according to BIP62
+            try {
+              let { signature } = bitcoinjs.script.signature.decode(sigDERBuf);
+              resultStr = ECPair.fromPublicKey(pubKeyBuf)
+                .verify(hashBuf, signature)
+                .toString();
+            } catch (invalidHashTypeError) {
+              // BIP62: Invalid Hash Type flag in strict DER signature
+              resultStr = ERROR_SIGNATURE;
+            }
+
+            data[row][M_TABLE_VERSIG_CNUM] = resultStr;
+          } else {
+            // PUblic key does not conform to bitcoin ECDSA public key format
+            data[row][M_TABLE_VERSIG_CNUM] = ERROR_PUBKEY;
+          }
+        } else {
+          // Digital Signature is not a base16 string
+          data[row][M_TABLE_VERSIG_CNUM] = ERROR_SIGNATURE;
+        }
+      } else {
+        // Public key is not a base16 string
+        data[row][M_TABLE_VERSIG_CNUM] = ERROR_PUBKEY;
+      }
+    } else {
+      // Public key, message, or digital signature is empty
+      data[row][M_TABLE_VERSIG_CNUM] = ERROR_EMPTY;
     }
   }
 

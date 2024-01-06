@@ -6156,37 +6156,15 @@ function config (name) {
 
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],27:[function(require,module,exports){
-// cspell:ignore bitcoinjs ecpair tinysecp secp
+// cspell:ignore bitcoinjs ecpair tinysecp secp bitcoinerlab
 
 module.exports = {
   Buffer: require("safe-buffer").Buffer,
   bitcoinjs: require("bitcoinjs-lib"),
   secp256k1: require("@bitcoinerlab/secp256k1"),
+  // secp256k1: require("tiny-secp256k1"), // Note: tiny-secp256k1 no longer works with browserify out of the box
   ECPair: require("ecpair"),
 };
-
-/*
-module.exports = {
-  BigInteger: require("bigi"),
-  fastRoot: require("merkle-lib/fastRoot"),
-  wif: require("wif"),
-  bech32: require("bech32").bech32,
-  bech32m: require("bech32").bech32m,
-  bip32: require("bip32"),
-  bip38: require("bip38"),
-  bip39: require("bip39"),
-  bip66: require("bip66"),
-  pbkdf2: require("pbkdf2"),
-  secrets: require("secrets.js-grempe"),
-  schnorr: require("bip-schnorr"),
-  randomBytes: require("random-bytes").sync,
-  scrypt: require("scrypt-js").scrypt,
-  aez: require("aez"),
-  crc32: require("fast-crc32c/impls/js_crc32c"),
-  unorm: require("unorm"),
-  createHmac: require("create-hmac"),
-};
-*/
 
 },{"@bitcoinerlab/secp256k1":28,"bitcoinjs-lib":76,"ecpair":106,"safe-buffer":130}],28:[function(require,module,exports){
 (function (Buffer){(function (){
