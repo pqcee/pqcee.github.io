@@ -29,7 +29,13 @@
  * Licensor: pQCee Pte Ltd
  */
 
-// cspell:ignore bitcoinjs secp
+// ===========================
+// CODE SPELL CHECKER SETTINGS
+// ===========================
+// cspell:ignore bitcoinjs bech Segwit
+// cspell:ignore addin taskpane Dialog
+// cspell:ignoreRegExp /[A-Z]{3}[A-Za-z]*/
+// cspell:ignoreRegExp /[A-Za-z]+[0-9]+/
 
 // =======================================
 // REGISTER EVENTS FOR HTML GUI COMPONENTS
@@ -202,15 +208,446 @@ const C_TABLE_DEFAULT_ROWS = 10;
  */
 const C_TABLE_SPACER_ROWS = 2;
 
-// ===========================
-// GLOBAL - INTERNAL CONSTANTS
-// ===========================
+// ================
+// GLOBAL - CLASSES
+// ================
 
-/** Regular Expression string to validate hexadecimal strings */
-const regexHex = new RegExp("^[0-9a-fA-F]+$");
+/**
+ * Class with syntax checking functions for strings and Uint8Array
+ */
+class SyntaxChecker {
+  /**
+   * Tests if string contains only hexadecimal characters.
+   *
+   * @param {string} strInput - String to test.
+   * @returns {boolean}
+   * True if string contains only hexadecimal characters. False otherwise.
+   */
+  static isHex(strInput) {
+    // Regular Expression to validate hexadecimal strings
+    return new RegExp("^[0-9a-fA-F]+$").test(strInput);
+  }
 
-/** Regular Expression string to validate base58 strings */
-const regexBase58 = new RegExp("^[1-9A-HJ-NP-Za-km-z]+$");
+  /**
+   * Tests if string contains only base58 characters.
+   *
+   * @param {string} strInput - String to test.
+   * @returns {boolean}
+   * True if string contains only base58 characters. False otherwise.
+   */
+  static isBase58(strInput) {
+    // Regular Expression to validate base58 strings
+    return new RegExp("^[1-9A-HJ-NP-Za-km-z]+$").test(strInput);
+  }
+
+  /**
+   * Tests if string contains only bech32 characters.
+   * This excludes characters "b" and "1" found in prefix of Segwit address.
+   * Note that bech32m uses the same set of bech32 characters but with
+   * a different checksum constant to mitigate a checksum bug.
+   *
+   * @param {string} strInput - String to test.
+   * @returns {boolean}
+   * True if string contains only bech32 characters. False otherwise.
+   */
+  static isBech32(strInput) {
+    return new RegExp("^[02-9ac-hj-np-z]+$").test(strInput);
+  }
+
+  static isBTCAddressFormat(strAddress) {
+    const P2WPKH_LENGTH = 42;
+    const P2WSH_LENGTH = 62;
+
+    let isValidFormat = false;
+
+    // Check if address is a valid
+    // 1. P2PKH address (starts with "1", has total of 26-34 base58 chars)
+    // 2. P2SH address (starts with "3", has total of 34 base58 chars)
+    // 3. Segwit v0 (P2WPKH) address (starts with "bc1q", has total 42 chars)
+    // 4. Segwit v0 (P2WSH) address (starts with "bc1q", has 62 chars)
+    // 4. Segwit v1 Taproot (P2TR) address (starts with "bc1p", has 62 chars)
+    if (new RegExp("^(1)[1-9A-HJ-NP-Za-km-z]{25,33}$").test(strAddress)) {
+      // Valid P2PKH address
+      isValidFormat = true;
+    } else if (new RegExp("^(3)[1-9A-HJ-NP-Za-km-z]{33}$").test(strAddress)) {
+      // Valid P2SH address
+      isValidFormat = true;
+    } else if (new RegExp("^(bc1q)[02-9ac-hj-np-z]+$").test(strAddress)) {
+      // Valid P2WPKH or P2WSH address
+      isValidFormat =
+        strAddress.length === P2WPKH_LENGTH ||
+        strAddress.length === P2WSH_LENGTH;
+    } else if (new RegExp("^(bc1p)[02-9ac-hj-np-z]{58}}$").test(strAddress)) {
+      // Valid P2TR address
+      isValidFormat = true;
+    }
+
+    return isValidFormat;
+  }
+
+  /**
+   * Performs sanity checks on the format of the public key associated with a
+   * Bitcoin address. Checks for valid lengths and valid prefixes used in both
+   * compressed and uncompressed public key forms.
+   *
+   * @param {Uint8Array} binPubKey
+   * Byte array of a public key associated with a Bitcoin address.
+   *
+   * @returns {boolean}
+   * True when public key has valid length and prefix; false otherwise.
+   */
+  static isBTCPublicKeyFormat(binPubKey) {
+    // Compressed public key is 33 bytes long and has 0x02 or 0x03 prefix
+    const COMP_PUBKEY_LENGTH = 33;
+    const COMP_PUBKEY_PREFIX_EVEN = 0x02;
+    const COMP_PUBKEY_PREFIX_ODD = 0x03;
+
+    // Uncompressed public key is 65 bytes long and has 0x04 prefix
+    const FULL_PUBKEY_LENGTH = 65;
+    const FULL_PUBKEY_PREFIX = 0x04;
+
+    let isValidFormat = false;
+
+    // Check for valid compressed and valid full public key formats
+    if (
+      binPubKey.length === COMP_PUBKEY_LENGTH &&
+      (binPubKey[0] === COMP_PUBKEY_PREFIX_EVEN ||
+        binPubKey[0] === COMP_PUBKEY_PREFIX_ODD)
+    ) {
+      isValidFormat = true;
+    } else if (
+      binPubKey.length === FULL_PUBKEY_LENGTH &&
+      binPubKey[0] === FULL_PUBKEY_PREFIX
+    ) {
+      isValidFormat = true;
+    }
+
+    return isValidFormat;
+  }
+}
+
+/**
+ * Class to assist in generating Excel cell ranges related to the cell and table
+ * locations of our Audit Template.
+ */
+class AuditTemplate {
+  Colour;
+  Worksheet;
+  InstructionTable;
+  ParamTable;
+  MainTable;
+  CommentsTable;
+
+  constructor(intDataRows) {
+    // Initialise properties
+    this.Colour = new Object();
+    this.Worksheet = new Object();
+    this.InstructionTable = new Object();
+    this.ParamTable = new Object();
+    this.MainTable = new Object();
+    this.CommentsTable = new Object();
+
+    // Initialise Colour
+    this.#initialiseColour();
+
+    // Calculate Audit Template cell range locations
+    this.#calculateWorksheet(intDataRows);
+  }
+
+  #initialiseColour() {
+    this.Colour["Shade"] = new Object();
+
+    // Cell Shade colours
+    this.Colour.Shade["Grey"] = "#A5A5A5";
+    this.Colour.Shade["Yellow"] = "#FFFF00";
+  }
+
+  #calculateWorksheet(intDataRows) {
+    // Audit Worksheet: Top-left cell (A1)
+    this.Worksheet["leftColumn"] = "A";
+    this.Worksheet["topRow"] = 1;
+    this.Worksheet["startCell"] = "".concat(
+      this.Worksheet.leftColumn,
+      this.Worksheet.topRow,
+    );
+
+    // Audit Worksheet: right column
+    this.Worksheet["rightColumn"] = "H";
+
+    // Instruction Table
+    this.#calculateInstructionTable();
+
+    // Main Table
+    this.#calculateMainTable(intDataRows);
+
+    // Audit Table
+    this.#calculateCommentsTable();
+
+    // Message Params Table
+    this.#calculateParamTable();
+
+    // Audit Worksheet: Bottom-right cell
+    this.Worksheet["bottomRow"] = this.CommentsTable.bottomRow;
+    this.Worksheet["endCell"] = "".concat(
+      this.Worksheet.startCell,
+      ":",
+      this.Worksheet.endCell,
+    );
+  }
+
+  #calculateInstructionTable() {
+    // Content for Instruction Table
+    this.InstructionTable["data"] = [
+      ["Instructions:"],
+      ["1. Auditor fills up Message Params and send workbook to client."],
+      ["2. Client choose BTC/ETH in Crypto column."],
+      ["3. Client fills up Wallet Address & Public Key."],
+      ["4. Client sign Message and fills up Digital Signature."],
+      ["5. Client sends workbook back to Auditor."],
+      ["6. Auditor clicks Validate button to verify wallet ownership."],
+    ];
+
+    // Instruction Table: Top-left cell (tag to Worksheet Top-left cell)
+    this.InstructionTable["leftColumn"] = this.Worksheet.leftColumn;
+    this.InstructionTable["topRow"] = this.Worksheet.topRow;
+    this.InstructionTable["startCell"] = this.Worksheet.startCell;
+
+    // Instruction Table: Bottom-right cell
+    this.InstructionTable["rightColumn"] = this.Worksheet.leftColumn;
+    this.InstructionTable["bottomRow"] = this.InstructionTable.data.length;
+    this.InstructionTable["endCell"] = "".concat(
+      this.InstructionTable.rightColumn,
+      this.InstructionTable.bottomRow,
+    );
+
+    // Instruction Table: Cell Range
+    this.InstructionTable["range"] = "".concat(
+      this.InstructionTable.startCell,
+      this.InstructionTable.endCell,
+    );
+  }
+
+  #calculateMainTable(intDataRows) {
+    // Main Table has minimum >= 10 rows
+    this.MainTable["defaultRows"] = 10;
+
+    // Number of data rows in Main Table (excludes header row)
+    this.MainTable["dataRows"] = Math.max(
+      intDataRows,
+      this.MainTable.defaultRows,
+    );
+
+    // Main Table: Top-left Cell (including Header)
+    this.MainTable["leftColumn"] = this.Worksheet.leftColumn;
+    this.MainTable["topRow"] = this.InstructionTable.bottomRow + 2;
+    this.MainTable["startCell"] = "".concat(
+      this.MainTable.leftColumn,
+      this.MainTable.topRow,
+    );
+
+    // Main Table: Header: Top-left Cell
+    this.MainTable["Header"] = new Object();
+    this.MainTable.Header["leftColumn"] = this.MainTable.leftColumn;
+    this.MainTable.Header["topRow"] = this.MainTable.topRow;
+    this.MainTable.Header["startCell"] = this.MainTable.startCell;
+
+    // Main Table: Header: Bottom-right Cell
+    this.MainTable.Header["rightColumn"] = this.MainTable.rightColumn;
+    this.MainTable.Header["bottomRow"] = this.MainTable.topRow;
+    this.MainTable.Header["endCell"] = "".concat(
+      this.MainTable.Header.rightColumn,
+      this.MainTable.Header.bottomRow,
+    );
+
+    // Main Table: Header: Cell range
+    this.MainTable.Header["range"] = "".concat(
+      this.MainTable.Header.startCell,
+      ":",
+      this.MainTable.Header.endCell,
+    );
+
+    // Main Table: Header: header data and cell shade colours
+    this.MainTable.Header["data"] = [
+      [
+        "No.",
+        "Crypto",
+        "Wallet Address",
+        "Public Key",
+        "Message",
+        "Digital Signature",
+        "Valid Wallet",
+        "Verified",
+      ],
+    ];
+    this.MainTable.Header["colours"] = [
+      this.Colour.Shade.Grey,
+      this.Colour.Shade.Yellow,
+      this.Colour.Shade.Yellow,
+      this.Colour.Shade.Yellow,
+      this.Colour.Shade.Grey,
+      this.Colour.Shade.Yellow,
+      this.Colour.Shade.Grey,
+      this.Colour.Shade.Grey,
+    ];
+
+    // Main Table: Data Section: Top-left Cell
+    this.MainTable["Data"] = new Object();
+    this.MainTable.Data["leftColumn"] = this.MainTable.leftColumn;
+    this.MainTable.Data["topRow"] = this.MainTable.topRow + 1;
+    this.MainTable.Data["startCell"] = "".concat(
+      this.MainTable.Data.leftColumn,
+      this.MainTable.Data.topRow,
+    );
+
+    // Main Table: Bottom-right Cell
+    this.MainTable["rightColumn"] = this.Worksheet.rightColumn;
+    this.MainTable["bottomRow"] =
+      this.MainTable.topRow + this.MainTable.dataRows;
+    this.MainTable["endCell"] = "".concat(
+      this.MainTable.rightColumn,
+      this.MainTable.bottomRow,
+    );
+
+    // Main Table: Data Section: Bottom-right Cell
+    this.MainTable.Data["rightColumn"] = this.MainTable.rightColumn;
+    this.MainTable.Data["bottomRow"] = this.MainTable.bottomRow;
+    this.MainTable.Data["endCell"] = this.MainTable.endCell;
+
+    // Main Table: Cell Range
+    this.MainTable["range"] = "".concat(
+      this.MainTable.startCell,
+      ":",
+      this.MainTable.endCell,
+    );
+
+    // Main Table: Data Section: Cell Range
+    this.MainTable.Data["range"] = "".concat(
+      this.MainTable.Data.startCell,
+      ":",
+      this.MainTable.Data.endCell,
+    );
+
+    // Number of data columns in Main Table
+    this.MainTable["dataColumns"] =
+      AuditTemplate.convertColToInt(this.MainTable.rightColumn) -
+      AuditTemplate.convertColToInt(this.MainTable.leftColumn) +
+      1;
+
+    // Compute the zero-based index of columns in the Main Table
+    this.MainTable["ColumnIndex"] = new Object();
+    this.MainTable.ColumnIndex["SerialNumber"] =
+      AuditTemplate.convertColToInt(this.MainTable.leftColumn) - 1;
+    this.MainTable.ColumnIndex["Crypto"] =
+      this.MainTable.ColumnIndex.SerialNumber + 1;
+    this.MainTable.ColumnIndex["Address"] =
+      this.MainTable.ColumnIndex.Crypto + 1;
+    this.MainTable.ColumnIndex["PublicKey"] =
+      this.MainTable.ColumnIndex.Address + 1;
+    this.MainTable.ColumnIndex["Message"] =
+      this.MainTable.ColumnIndex.PublicKey + 1;
+    this.MainTable.ColumnIndex["Signature"] =
+      this.MainTable.ColumnIndex.Message + 1;
+    this.MainTable.ColumnIndex["ValidWallet"] =
+      this.MainTable.ColumnIndex.Signature + 1;
+    this.MainTable.ColumnIndex["VerifiedSignature"] =
+      this.MainTable.ColumnIndex.ValidWallet + 1;
+  }
+
+  #calculateParamTable() {
+    // Message Params Table: Top-left cell
+    this.ParamTable["leftColumn"] = AuditTemplate.getColumnLeftOf(
+      this.Worksheet.rightColumn,
+    );
+    this.ParamTable["topRow"] = this.Worksheet.topRow + 1;
+    this.ParamTable["startCell"] = "".concat(
+      this.ParamTable.leftColumn,
+      this.ParamTable.topRow,
+    );
+
+    // Message Params content for left column
+    this.ParamTable["data"] = [["Seq. No."], ["Client Name"], ["Audit Date"]];
+
+    // Message Params Table: Bottom-right cell
+    this.ParamTable["rightColumn"] = this.Worksheet.rightColumn;
+    this.ParamTable["bottomRow"] =
+      this.ParamTable.topRow + this.ParamTable.data.length;
+    this.ParamTable["endCell"] = "".concat(
+      this.ParamTable.startCell,
+      ":",
+      this.ParamTable.endCell,
+    );
+  }
+
+  #calculateCommentsTable() {
+    // Audit Comments Table has minimum >= 10 rows
+    this.CommentsTable["defaultRows"] = 10;
+
+    // Audit Comments Table: Top-left cell
+    this.CommentsTable["leftColumn"] = this.MainTable.leftColumn;
+    this.CommentsTable["topRow"] = this.MainTable.bottomRow + 2;
+    this.CommentsTable["startCell"] = "".concat(
+      this.CommentsTable.leftColumn,
+      this.CommentsTable.topRow,
+    );
+
+    // Audit Comments Table: Bottom-right cell
+    this.CommentsTable["rightColumn"] = this.MainTable.rightColumn;
+    this.CommentsTable["bottomRow"] =
+      this.CommentsTable.topRow + this.CommentsTable.defaultRows;
+    this.CommentsTable["endCell"] = "".concat(
+      this.CommentsTable.rightColumn,
+      this.CommentsTable.bottomRow,
+    );
+
+    // Audit Comments Table: Cell range
+    this.CommentsTable["range"] = "".concat(
+      this.CommentsTable.startCell,
+      ":",
+      this.CommentsTable.endCell,
+    );
+  }
+
+  /**
+   * Convert Excel column alphabet to column number.
+   *
+   * @param {string} charColAlpha - Single character containing column alphabet.
+   * @returns {number} Number equivalent of column alphabet, where A = 1, B = 2, etc.
+   */
+  static convertColToInt(charColAlpha) {
+    // This function does not receive arbitrary input from user.
+    // Safe to assume the developer for this code will not pass in:
+    // - zero-length string
+    // - non-alphabet character
+    // - double-alphabet string
+    const ASCII_UPPER_CASE_A = "A".charCodeAt(0);
+    return charColAlpha.toUpperCase().charCodeAt(0) - ASCII_UPPER_CASE_A + 1;
+  }
+
+  /**
+   * Convert column number to Excel column alphabet.
+   *
+   * @param {number} intColNumber - Integer value of column number.
+   * @returns {string} Character equivalent of column number, where 1 = A, 2 = B, etc.
+   */
+  static convertIntToCol(intColNumber) {
+    // This function does not receive arbitrary input from user.
+    // Similar to convertColToInt(), safe to assume developer does not pass in invalid values.
+    const ASCII_UPPER_CASE_A = "A".charCodeAt(0);
+    return String.fromCharCode(intColNumber + ASCII_UPPER_CASE_A - 1);
+  }
+
+  static getColumnLeftOf(charColAlpha) {
+    return AuditTemplate.convertIntToCol(
+      AuditTemplate.convertColToInt(charColAlpha) - 1,
+    );
+  }
+
+  static getColumnRightOf(charColAlpha) {
+    return AuditTemplate.convertIntToCol(
+      AuditTemplate.convertColToInt(charColAlpha) + 1,
+    );
+  }
+}
 
 // =============
 // BUTTON EVENTS
@@ -278,16 +715,7 @@ function createMessage() {
       let dateSrc = paramsData[P_TABLE_DATE_ROW - P_TABLE_SEQNUM_ROW][0];
 
       // Build require message for signing
-      let msg = "".concat(
-        "[",
-        seqNumSrc,
-        "]",
-        " ",
-        clientSrc,
-        " owns wallet on ",
-        dateSrc,
-        ".",
-      );
+      let msg = buildMessageString(seqNumSrc, clientSrc, dateSrc);
 
       // Update message back into MAIN TABLE
       const MSG_START_CELL = "".concat(M_TABLE_MSG_COLUMN, M_TABLE_2ND_ROW);
@@ -384,42 +812,47 @@ function convertIntToCol(intColNumber) {
   return String.fromCharCode(intColNumber + ASCII_UPPER_CASE_A - 1);
 }
 
+function buildMessageString(intSeqNum, strClient, strDate) {
+  return "".concat(
+    "[",
+    intSeqNum,
+    "]",
+    " ",
+    strClient,
+    " owns wallet on ",
+    strDate,
+    ".",
+  );
+}
+
 /**
- * Performs sanity checks on the format of the public key associated with a
- * Bitcoin address. Checks for valid lengths and valid prefixes used in both
- * compressed and uncompressed public key forms.
+ * Returns today's date in dd-Mmm-yyyy format.
  *
- * @param {Uint8Array} publicKey - Byte array of a public key associated with a Bitcoin address.
- * @returns {boolean} True when public key has valid length and prefix; false otherwise.
+ * @inner
+ * @returns {string} Today's date. E.g., "20-Jan-2023".
  */
-function isBTCPublicKeyValidFormat(publicKey) {
-  // Compressed public key is 33 bytes long and has either 0x02 or 0x03 prefix
-  const BTC_COMP_PUBKEY_LENGTH = 33;
-  const BTC_COMP_PUBKEY_PREFIX_EVEN = 0x02;
-  const BTC_COMP_PUBKEY_PREFIX_ODD = 0x03;
+function todayDate() {
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
 
-  // Uncompressed public key is 65 bytes long and has 0x04 prefix
-  const BTC_FULL_PUBKEY_LENGTH = 65;
-  const BTC_FULL_PUBKEY_PREFIX = 0x04;
+  let today = new Date();
+  let dd = today.getDate().toString().padStart(2, "0");
+  let Mmm = MONTHS[today.getMonth()];
+  let yyyy = today.getFullYear();
 
-  let isValidFormat = false;
-
-  if (publicKey.length === BTC_COMP_PUBKEY_LENGTH) {
-    switch (publicKey[0]) {
-      case BTC_COMP_PUBKEY_PREFIX_EVEN:
-      case BTC_COMP_PUBKEY_PREFIX_ODD:
-        isValidFormat = true;
-        break;
-      default:
-        isValidFormat = false;
-    }
-  } else if (publicKey.length === BTC_FULL_PUBKEY_LENGTH) {
-    isValidFormat = publicKey[0] === BTC_FULL_PUBKEY_PREFIX;
-  } else {
-    isValidFormat = false;
-  }
-
-  return isValidFormat;
+  return "".concat(dd, "-", Mmm, "-", yyyy);
 }
 
 /**
@@ -459,36 +892,6 @@ function setupAuditTableTemplate(objWS, intDataRows) {
     objRangeBorderCollection.getItem("EdgeBottom").style = STR_LINE;
     objRangeBorderCollection.getItem("InsideHorizontal").style = STR_LINE;
     objRangeBorderCollection.getItem("InsideVertical").style = STR_LINE;
-  }
-
-  /**
-   * Returns today's date in dd-Mmm-yyyy format.
-   *
-   * @inner
-   * @returns {string} Today's date. E.g., "20-Jan-2023".
-   */
-  function todayDate() {
-    const MONTHS = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
-    let today = new Date();
-    let dd = today.getDate().toString().padStart(2, "0");
-    let Mmm = MONTHS[today.getMonth()];
-    let yyyy = today.getFullYear();
-
-    return "".concat(dd, "-", Mmm, "-", yyyy);
   }
 
   //
@@ -712,7 +1115,47 @@ function setupAuditTableTemplate(objWS, intDataRows) {
  * @param {number} intDataRows - Number of rows of audit data to be filled in Main Table.
  */
 function generateSimulatedData(objWS, intDataRows) {
-  // TODO - generate data for columns B, C, D, F
+  // Get Main Table: Data Section
+  const AT = new AuditTemplate(intDataRows);
+  let objDataRange = objWS.getRange(AT.MainTable.Data.range);
+
+  // Populate fields for Main Table
+  let data = new Array(AT.MainTable.dataRows);
+  for (let row = 0; row < AT.MainTable.dataRows; row++) {
+    data[row] = new Array(AT.MainTable.dataColumns);
+
+    // Derive new key pair, bitcoin address
+    let keyPair = ECPair.makeRandom();
+    let pubkey = keyPair.publicKey;
+    let { address } = bitcoinjs.payments.p2pkh({ pubkey });
+
+    // Derive message
+    let msg = buildMessageString(
+      Math.floor(Math.random() * 9000) + 1000,
+      "Client A",
+      todayDate(),
+    );
+
+    // Derive signature for message
+    let hashBuf = bitcoinjs.crypto.sha256(Buffer.from(msg));
+    let signBuf = keyPair.sign(hashBuf);
+    let signDERBuf = bitcoinjs.script.signature.encode(
+      signBuf,
+      bitcoinjs.Transaction.SIGHASH_ALL,
+    );
+
+    // Update data array for current row
+    data[row][AT.MainTable.ColumnIndex.SerialNumber] = (row + 1).toString();
+    data[row][AT.MainTable.ColumnIndex.Crypto] = "BTC";
+    data[row][AT.MainTable.ColumnIndex.Address] = address;
+    data[row][AT.MainTable.ColumnIndex.PublicKey] = pubkey.toString("hex");
+    data[row][AT.MainTable.ColumnIndex.Message] = msg;
+    data[row][AT.MainTable.ColumnIndex.Signature] = signDERBuf.toString("hex");
+    data[row][AT.MainTable.ColumnIndex.ValidWallet] = "";
+    data[row][AT.MainTable.ColumnIndex.VerifiedSignature] = "";
+  }
+
+  objDataRange.values = data;
 }
 
 /**
@@ -739,16 +1182,16 @@ function validateWalletAddress(objDataRange) {
 
     // Syntax Validation for wallet address & public key
     // 1. Ensure both wallet address and public key are not empty
-    // 2. Ensure wallet address conforms to base58, otherwise "X Wallet" appears
+    // 2. Ensure wallet address format is valid, otherwise "X Wallet" appears
     // 3. Ensure public key conforms to base16, otherwise "X PubKey" appears
     let walletAddrIsFilled = walletAddrSrc !== "";
     let publicKeyIsFilled = publicKeySrc !== "";
 
     if (walletAddrIsFilled && publicKeyIsFilled) {
-      let walletAddrIsBase58 = regexBase58.test(walletAddrSrc);
+      let addressIsValid = SyntaxChecker.isBTCAddressFormat(walletAddrSrc);
 
-      if (walletAddrIsBase58) {
-        let publicKeyIsHex = regexHex.test(publicKeySrc);
+      if (addressIsValid) {
+        let publicKeyIsHex = SyntaxChecker.isHex(publicKeySrc);
 
         if (publicKeyIsHex) {
           // Internally prepend '0' if hex string has odd number of characters
@@ -762,7 +1205,7 @@ function validateWalletAddress(objDataRange) {
           // 3. "true" appears when both public key and wallet address are valid
           let pubkey = Buffer.from(publicKeySrc, "hex");
 
-          if (isBTCPublicKeyValidFormat(pubkey)) {
+          if (SyntaxChecker.isBTCPublicKeyFormat(pubkey)) {
             let { address } = bitcoinjs.payments.p2pkh({ pubkey });
             let walletAddrIsValid = walletAddrSrc === address;
             data[row][M_TABLE_VAL_WALLET_CNUM] = walletAddrIsValid.toString();
@@ -820,10 +1263,10 @@ function verifySignature(objDataRange) {
     let sigIsFilled = sigSrc !== "";
 
     if (publicKeyIsFilled && msgIsFilled && sigIsFilled) {
-      let publicKeyIsHex = regexHex.test(publicKeySrc);
+      let publicKeyIsHex = SyntaxChecker.isHex(publicKeySrc);
 
       if (publicKeyIsHex) {
-        let sigIsHex = regexHex.test(sigSrc);
+        let sigIsHex = SyntaxChecker.isHex(sigSrc);
 
         if (sigIsHex) {
           // Internally prepend '0' if hex string has odd number of characters
@@ -842,7 +1285,7 @@ function verifySignature(objDataRange) {
           // 4. "true" appears when both public key and signature are valid
           let pubKeyBuf = Buffer.from(publicKeySrc, "hex");
 
-          if (isBTCPublicKeyValidFormat(pubKeyBuf)) {
+          if (SyntaxChecker.isBTCPublicKeyFormat(pubKeyBuf)) {
             let resultStr = "";
             const hashBuf = bitcoinjs.crypto.sha256(Buffer.from(msgSrc));
             const sigDERBuf = Buffer.from(sigSrc, "hex");
