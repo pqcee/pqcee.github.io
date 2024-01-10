@@ -45,13 +45,13 @@ Office.onReady((info) => {
   // Check that we loaded into Excel
   if (info.host === Office.HostType.Excel) {
     // Auditor Actions
-    document.getElementById("btnCreateTable").onclick = createTable;
-    document.getElementById("btnValidateWalletAddress").onclick = validateAddr;
-    document.getElementById("btnCreateSigningMessage").onclick = createMessage;
-    document.getElementById("btnValidateSignature").onclick = validateSignature;
+    document.getElementById("btnCreateTable").onclick = handleCreateTable;
+    document.getElementById("btnValidateAddress").onclick = handleValidateAddr;
+    document.getElementById("btnCreateMessage").onclick = handleCreateMessage;
+    document.getElementById("btnValidateSignature").onclick = handleValidateSig;
 
     // Demo Options
-    document.getElementById("btnLoadSimulatedData").onclick = loadSimData;
+    document.getElementById("btnCreateSimData").onclick = handleCreateSimData;
   }
 });
 
@@ -59,7 +59,7 @@ Office.onReady((info) => {
 // GLOBAL - ASTABLISH BUNDLE EXPORTS
 // =================================
 const Buffer = astablishBundle.Buffer;
-const bitcoinjs = astablishBundle.bitcoinjs;
+const bitcoin = astablishBundle.bitcoinjs;
 const secp256k1 = astablishBundle.secp256k1;
 const ECPair = astablishBundle.ECPair.ECPairFactory(secp256k1);
 
@@ -254,11 +254,18 @@ class SyntaxChecker {
     return new RegExp("^[02-9ac-hj-np-z]+$").test(strInput);
   }
 
+  static BTC_ADDR_FAILED = 0;
+  static BTC_ADDR_LEGACY_P2PKH = 1;
+  static BTC_ADDR_P2SH_P2WPKH = 2;
+  static BTC_ADDR_SEGWIT_P2WPKH = 3;
+  static BTC_ADDR_SEGWIT_P2WSH = 4;
+  static BTC_ADDR_P2TR = 5;
+
   static isBTCAddressFormat(strAddress) {
     const P2WPKH_LENGTH = 42;
     const P2WSH_LENGTH = 62;
 
-    let isValidFormat = false;
+    let isValidFormat = this.BTC_ADDR_FAILED;
 
     // Check if address is a valid
     // 1. P2PKH address (starts with "1", has total of 26-34 base58 chars)
@@ -267,19 +274,23 @@ class SyntaxChecker {
     // 4. Segwit v0 (P2WSH) address (starts with "bc1q", has 62 chars)
     // 4. Segwit v1 Taproot (P2TR) address (starts with "bc1p", has 62 chars)
     if (new RegExp("^(1)[1-9A-HJ-NP-Za-km-z]{25,33}$").test(strAddress)) {
-      // Valid P2PKH address
-      isValidFormat = true;
+      // Valid Legacy P2PKH address
+      isValidFormat = this.BTC_ADDR_LEGACY_P2PKH;
     } else if (new RegExp("^(3)[1-9A-HJ-NP-Za-km-z]{33}$").test(strAddress)) {
       // Valid P2SH address
-      isValidFormat = true;
+      isValidFormat = this.BTC_ADDR_P2SH_P2WPKH;
     } else if (new RegExp("^(bc1q)[02-9ac-hj-np-z]+$").test(strAddress)) {
       // Valid P2WPKH or P2WSH address
-      isValidFormat =
-        strAddress.length === P2WPKH_LENGTH ||
-        strAddress.length === P2WSH_LENGTH;
+      if (strAddress.length === P2WPKH_LENGTH) {
+        isValidFormat = this.BTC_ADDR_SEGWIT_P2WPKH;
+      } else if (strAddress.length === P2WSH_LENGTH) {
+        isValidFormat = this.BTC_ADDR_SEGWIT_P2WSH;
+      } else {
+        isValidFormat = this.BTC_ADDR_FAILED;
+      }
     } else if (new RegExp("^(bc1p)[02-9ac-hj-np-z]{58}}$").test(strAddress)) {
       // Valid P2TR address
-      isValidFormat = true;
+      isValidFormat = this.BTC_ADDR_P2TR;
     }
 
     return isValidFormat;
@@ -649,21 +660,46 @@ class AuditTemplate {
   }
 }
 
+/** Class to assist in generating various bitcoin addresses and signatures. */
+class BitcoinAuditor {
+  #pubkey;
+
+  constructor(pubkey) {
+    this.#pubkey = pubkey;
+  }
+
+  legacy_P2PKH() {
+    let pubkey = this.#pubkey;
+    return bitcoin.payments.p2pkh({ pubkey }).address;
+  }
+
+  P2SH_P2WPKH() {
+    let pubkey = this.#pubkey;
+    let objSegwitPKH = bitcoin.payments.p2wpkh({ pubkey });
+    return bitcoin.payments.p2sh({ redeem: objSegwitPKH }).address;
+  }
+
+  segwit_P2WPKH() {
+    let pubkey = this.#pubkey;
+    return bitcoin.payments.p2wpkh({ pubkey }).address;
+  }
+}
+
 // =============
 // BUTTON EVENTS
 // =============
 
-function createTable() {
+function handleCreateTable() {
   Excel.run((context) => {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
     let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
     const DATA_ROWS = Math.max(intDataRows, M_TABLE_DEFAULT_DATA_ROWS);
-    setupAuditTableTemplate(selectedSheet, DATA_ROWS);
+    generateAuditTableTemplate(selectedSheet, DATA_ROWS);
     return context.sync();
   });
 }
 
-function validateAddr() {
+function handleValidateAddr() {
   Excel.run((context) => {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
 
@@ -697,7 +733,7 @@ function validateAddr() {
   });
 }
 
-function createMessage() {
+function handleCreateMessage() {
   Excel.run((context) => {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
     let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
@@ -733,7 +769,7 @@ function createMessage() {
   });
 }
 
-function validateSignature() {
+function handleValidateSig() {
   Excel.run((context) => {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
 
@@ -770,7 +806,7 @@ function validateSignature() {
 /**
  * Generate and load simulated data into empty Audit Table for demo purpose.
  */
-function loadSimData() {
+function handleCreateSimData() {
   Excel.run((context) => {
     let selectedSheet = context.workbook.worksheets.getActiveWorksheet();
     let intDataRows = M_TABLE_DEFAULT_DATA_ROWS; // Placeholder for user input
@@ -861,7 +897,7 @@ function todayDate() {
  * @param {Excel.Worksheet} objWS - Target worksheet to process.
  * @param {number} intDataRows - Number of rows of audit data to be filled in Main Table.
  */
-function setupAuditTableTemplate(objWS, intDataRows) {
+function generateAuditTableTemplate(objWS, intDataRows) {
   /**
    * Converts value for Excel row height or column width from pixel to font
    * point. The conversion is achieved by using an approximation, where font
@@ -1127,7 +1163,30 @@ function generateSimulatedData(objWS, intDataRows) {
     // Derive new key pair, bitcoin address
     let keyPair = ECPair.makeRandom();
     let pubkey = keyPair.publicKey;
-    let { address } = bitcoinjs.payments.p2pkh({ pubkey });
+    // Derive 5 P2PKH addresses and 5 P2SH addresses
+    let btcAudit = new BitcoinAuditor(pubkey);
+    let address = "";
+
+    switch (row) {
+      case 0:
+      case 1:
+      case 2:
+        address = btcAudit.legacy_P2PKH();
+        break;
+      case 3:
+      case 4:
+      case 5:
+        address = btcAudit.P2SH_P2WPKH();
+        break;
+      case 6:
+      case 7:
+      case 8:
+      case 9:
+        address = btcAudit.segwit_P2WPKH();
+        break;
+      default:
+        address = btcAudit.legacy_P2PKH();
+    }
 
     // Derive message
     let msg = buildMessageString(
@@ -1137,11 +1196,11 @@ function generateSimulatedData(objWS, intDataRows) {
     );
 
     // Derive signature for message
-    let hashBuf = bitcoinjs.crypto.sha256(Buffer.from(msg));
+    let hashBuf = bitcoin.crypto.sha256(Buffer.from(msg));
     let signBuf = keyPair.sign(hashBuf);
-    let signDERBuf = bitcoinjs.script.signature.encode(
+    let signDERBuf = bitcoin.script.signature.encode(
       signBuf,
-      bitcoinjs.Transaction.SIGHASH_ALL,
+      bitcoin.Transaction.SIGHASH_ALL,
     );
 
     // Update data array for current row
@@ -1188,9 +1247,9 @@ function validateWalletAddress(objDataRange) {
     let publicKeyIsFilled = publicKeySrc !== "";
 
     if (walletAddrIsFilled && publicKeyIsFilled) {
-      let addressIsValid = SyntaxChecker.isBTCAddressFormat(walletAddrSrc);
+      let addrCheckStatus = SyntaxChecker.isBTCAddressFormat(walletAddrSrc);
 
-      if (addressIsValid) {
+      if (addrCheckStatus !== SyntaxChecker.BTC_ADDR_FAILED) {
         let publicKeyIsHex = SyntaxChecker.isHex(publicKeySrc);
 
         if (publicKeyIsHex) {
@@ -1206,9 +1265,19 @@ function validateWalletAddress(objDataRange) {
           let pubkey = Buffer.from(publicKeySrc, "hex");
 
           if (SyntaxChecker.isBTCPublicKeyFormat(pubkey)) {
-            let { address } = bitcoinjs.payments.p2pkh({ pubkey });
-            let walletAddrIsValid = walletAddrSrc === address;
-            data[row][M_TABLE_VAL_WALLET_CNUM] = walletAddrIsValid.toString();
+            let btcAudit = new BitcoinAuditor(pubkey);
+            let address = "";
+            if (addrCheckStatus === SyntaxChecker.BTC_ADDR_LEGACY_P2PKH) {
+              address = btcAudit.legacy_P2PKH();
+            } else if (addrCheckStatus === SyntaxChecker.BTC_ADDR_P2SH_P2WPKH) {
+              address = btcAudit.P2SH_P2WPKH();
+            } else {
+              // Note: this else clause assumes no Segwit P2WSH nor P2TR
+              // Please adjust accordingly after Segwit P2WSH and P2TR done
+              address = btcAudit.segwit_P2WPKH();
+            }
+            let btcAddrIsValid = walletAddrSrc === address;
+            data[row][M_TABLE_VAL_WALLET_CNUM] = btcAddrIsValid.toString();
           } else {
             // Public key does not conform to bitcoin ECDSA public key format
             data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_PUBKEY;
@@ -1287,13 +1356,13 @@ function verifySignature(objDataRange) {
 
           if (SyntaxChecker.isBTCPublicKeyFormat(pubKeyBuf)) {
             let resultStr = "";
-            const hashBuf = bitcoinjs.crypto.sha256(Buffer.from(msgSrc));
+            const hashBuf = bitcoin.crypto.sha256(Buffer.from(msgSrc));
             const sigDERBuf = Buffer.from(sigSrc, "hex");
 
-            // bitcoinjs.script.signature.decode() may throw Error due to
+            // bitcoin.script.signature.decode() may throw Error due to
             // invalid Hash Type flag at end of DER string according to BIP62
             try {
-              let { signature } = bitcoinjs.script.signature.decode(sigDERBuf);
+              let { signature } = bitcoin.script.signature.decode(sigDERBuf);
               resultStr = ECPair.fromPublicKey(pubKeyBuf)
                 .verify(hashBuf, signature)
                 .toString();
