@@ -24,7 +24,7 @@
  *
  * Software: AStablish Office Add-in
  *
- * License: MIT License
+ * License: MIT, BSD-3-Clause, ISC
  *
  * Licensor: pQCee Pte Ltd
  */
@@ -35,7 +35,7 @@
 // cspell:ignore bitcoinjs bech Segwit
 // cspell:ignore addin taskpane Dialog
 // cspell:ignoreRegExp /[A-Z]{3}[A-Za-z]*/
-// cspell:ignoreRegExp /[A-Za-z]+[0-9]+/
+// cspell:ignoreRegExp /[A-Za-z]+[0-9]+[A-Za-z]+/
 
 // =======================================
 // REGISTER EVENTS FOR HTML GUI COMPONENTS
@@ -1156,62 +1156,80 @@ function generateSimulatedData(objWS, intDataRows) {
   let objDataRange = objWS.getRange(AT.MainTable.Data.range);
 
   // Populate fields for Main Table
+  // Populate one line for each one address format per cryptocurrency
   let data = new Array(AT.MainTable.dataRows);
   for (let row = 0; row < AT.MainTable.dataRows; row++) {
     data[row] = new Array(AT.MainTable.dataColumns);
 
-    // Derive new key pair, bitcoin address
-    let keyPair = ECPair.makeRandom();
-    let pubkey = keyPair.publicKey;
-    // Derive 5 P2PKH addresses and 5 P2SH addresses
-    let btcAudit = new BitcoinAuditor(pubkey);
-    let address = "";
+    // Current demo displays
+    // - P2PKH, P2SH(P2WPKH), P2WPKH for BTC
+    // Current simulated data limited to 3 lines
+    let rowLimit = 3;
 
-    switch (row) {
-      case 0:
-      case 1:
-      case 2:
-        address = btcAudit.legacy_P2PKH();
-        break;
-      case 3:
-      case 4:
-      case 5:
-        address = btcAudit.P2SH_P2WPKH();
-        break;
-      case 6:
-      case 7:
-      case 8:
-      case 9:
-        address = btcAudit.segwit_P2WPKH();
-        break;
-      default:
-        address = btcAudit.legacy_P2PKH();
+    if (row < rowLimit) {
+      // Derive new key pair, bitcoin address
+      let keyPair = ECPair.makeRandom();
+      let pubkey = keyPair.publicKey;
+      // Derive 5 P2PKH addresses and 5 P2SH addresses
+      let btcAudit = new BitcoinAuditor(pubkey);
+      let address = "";
+
+      switch (row) {
+        case 0:
+          address = btcAudit.legacy_P2PKH();
+          break;
+        case 1:
+          address = btcAudit.P2SH_P2WPKH();
+          break;
+        case 2:
+          address = btcAudit.segwit_P2WPKH();
+          break;
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+        case 9:
+        default:
+          address = "";
+      }
+
+      // Derive message
+      let msg = buildMessageString(
+        Math.floor(Math.random() * 9000) + 1000,
+        "Client A",
+        todayDate(),
+      );
+
+      // Derive signature for message
+      let hashBuf = bitcoin.crypto.sha256(Buffer.from(msg));
+      let sigBuf = keyPair.sign(hashBuf);
+      let sigDERBuf = bitcoin.script.signature.encode(
+        sigBuf,
+        bitcoin.Transaction.SIGHASH_ALL,
+      );
+
+      // Update data array for current row
+      data[row][AT.MainTable.ColumnIndex.SerialNumber] = (row + 1).toString();
+      data[row][AT.MainTable.ColumnIndex.Crypto] = "BTC";
+      data[row][AT.MainTable.ColumnIndex.Address] = address;
+      data[row][AT.MainTable.ColumnIndex.PublicKey] = pubkey.toString("hex");
+      data[row][AT.MainTable.ColumnIndex.Message] = msg;
+      data[row][AT.MainTable.ColumnIndex.Signature] = sigDERBuf.toString("hex");
+      data[row][AT.MainTable.ColumnIndex.ValidWallet] = "";
+      data[row][AT.MainTable.ColumnIndex.VerifiedSignature] = "";
+    } else {
+      // Update empty data array for current row
+      data[row][AT.MainTable.ColumnIndex.SerialNumber] = "";
+      data[row][AT.MainTable.ColumnIndex.Crypto] = "";
+      data[row][AT.MainTable.ColumnIndex.Address] = "";
+      data[row][AT.MainTable.ColumnIndex.PublicKey] = "";
+      data[row][AT.MainTable.ColumnIndex.Message] = "";
+      data[row][AT.MainTable.ColumnIndex.Signature] = "";
+      data[row][AT.MainTable.ColumnIndex.ValidWallet] = "";
+      data[row][AT.MainTable.ColumnIndex.VerifiedSignature] = "";
     }
-
-    // Derive message
-    let msg = buildMessageString(
-      Math.floor(Math.random() * 9000) + 1000,
-      "Client A",
-      todayDate(),
-    );
-
-    // Derive signature for message
-    let hashBuf = bitcoin.crypto.sha256(Buffer.from(msg));
-    let signBuf = keyPair.sign(hashBuf);
-    let signDERBuf = bitcoin.script.signature.encode(
-      signBuf,
-      bitcoin.Transaction.SIGHASH_ALL,
-    );
-
-    // Update data array for current row
-    data[row][AT.MainTable.ColumnIndex.SerialNumber] = (row + 1).toString();
-    data[row][AT.MainTable.ColumnIndex.Crypto] = "BTC";
-    data[row][AT.MainTable.ColumnIndex.Address] = address;
-    data[row][AT.MainTable.ColumnIndex.PublicKey] = pubkey.toString("hex");
-    data[row][AT.MainTable.ColumnIndex.Message] = msg;
-    data[row][AT.MainTable.ColumnIndex.Signature] = signDERBuf.toString("hex");
-    data[row][AT.MainTable.ColumnIndex.ValidWallet] = "";
-    data[row][AT.MainTable.ColumnIndex.VerifiedSignature] = "";
   }
 
   objDataRange.values = data;
