@@ -288,7 +288,7 @@ class SyntaxChecker {
       } else {
         isValidFormat = this.BTC_ADDR_FAILED;
       }
-    } else if (new RegExp("^(bc1p)[02-9ac-hj-np-z]{58}}$").test(strAddress)) {
+    } else if (new RegExp("^(bc1p)[02-9ac-hj-np-z]{58}$").test(strAddress)) {
       // Valid P2TR address
       isValidFormat = this.BTC_ADDR_P2TR;
     }
@@ -1267,7 +1267,11 @@ function validateWalletAddress(objDataRange) {
     if (walletAddrIsFilled && publicKeyIsFilled) {
       let addrCheckStatus = SyntaxChecker.isBTCAddressFormat(walletAddrSrc);
 
-      if (addrCheckStatus !== SyntaxChecker.BTC_ADDR_FAILED) {
+      if (
+        addrCheckStatus !== SyntaxChecker.BTC_ADDR_FAILED &&
+        addrCheckStatus !== SyntaxChecker.BTC_ADDR_SEGWIT_P2WSH &&
+        addrCheckStatus !== SyntaxChecker.BTC_ADDR_P2TR
+      ) {
         let publicKeyIsHex = SyntaxChecker.isHex(publicKeySrc);
 
         if (publicKeyIsHex) {
@@ -1305,7 +1309,8 @@ function validateWalletAddress(objDataRange) {
           data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_PUBKEY;
         }
       } else {
-        // Wallet is not a base58 string
+        // Wallet either does not conform to Bitcoin address format,
+        // uses currently unsupported P2WSH, or P2TR Bitcoin addresses.
         data[row][M_TABLE_VAL_WALLET_CNUM] = ERROR_WALLET;
       }
     } else {
