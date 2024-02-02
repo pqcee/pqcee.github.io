@@ -1,191 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="QuICScript.js"></script>
-    <style>
-      H1,H3 {
-        text-align: center;
-        font-family: Arial, Helvetica, sans-serif;
-      }
-      body {
-        font-family: Arial, Helvetica, sans-serif;
-      }
-      input[type='number']{
-	width: 40px;	       
-      } 
-      input[type="text"]{
-	        width: 90%;
-      }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<script src="QuICScript.js"></script>
+		<style>
+			H1,H3 {
+				text-align: center;
+				font-family: Arial, Helvetica, sans-serif;
+			}
+			body {
+				font-family: Arial, Helvetica, sans-serif;
+			}
+			input[type='number']{
+				width: 40px;	       
+			} 
+			input[type="text"]{
+				width: 90%;
+			}
+			textarea {
+				width:300px;
+				height:300px;
+				border: none;
+				outline: none;
+			}
+      			div {
+				width: 30%;
+				vertical-align: text-top;
+				margin: 10px auto;
+				display: inline-flex;
+				flex-direction: column;
+			} 
+			ul { 
+				display: inline;
+				list-style-type: circle;
+				margin:0;
+				padding:0;
+			}
 
-      div {
-        width: 30%;
-	vertical-align: text-top;
-        margin: 10px auto;
-        display: inline-flex;
-        flex-direction: column;
-      } 
-      ul { display: inline;
-	      list-style-type: circle;
-	      margin:0;
-	      padding:0;
-      }
-
-      button {
-        width: 50%;
-        margin: 10px 0px 5px 0px;
-      }
-    </style>
-    <script>  
-    async function runQuICScript() 
-    {
-      var rc = document.getElementById("ret")
-      var Qnum = document.getElementById("numQubits")
-      var Qcir = document.getElementById("circuit")
-
-      resultstate= Module.ccall('QuICScript_run','string',['number','string'],[Qnum.value,Qcir.value]);
-   //   document.getElementById("tw").innerHTML = "<input type=\"text\" id=\"QuICState\" value="+resultstate+" readonly><br><br>";
-	document.getElementById("tw").innerHTML = "<textarea rows=\"10\" cols=\"1000\">" + resultstate + "</textarea>";
-      /*
-      const byteCharacters = atob(gifresult);
-  const byteArrays = [];
-  let sliceSize = 512;
-  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-    const slice = byteCharacters.slice(offset, offset + sliceSize);
-
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
-  }
-
-  const gifBlob = new Blob(byteArrays, {type: 'image/gif'});
-	
-//      const gifBlob = new Blob([atob(gifresult)], {type: 'image/gif'});
+			button {
+				width: 40%;
+				margin: 10px 0px 5px 0px;
+			}
+		</style>
+	<script>  
+	var inited = 0;
+	var message = "";
+	async function resetQuICScript()
 	{
-       //    document.getElementById("tw").innerHTML = '<a href="https://twitter.com/share?ref_src=twsrc%5Etfw" class="twitter-share-button" data-show-count="false" data-size="large" data-via="tanteikg" data-text="I used #QuantumContracts to run my '+Qnum.value +' Qubit quantum circuit on the Polygon chain. #pQCee #BeQuantumReady &#129504; \n\n@0xPolygon ">Tweet</a>'
-       document.getElementById("tw").innerHTML = '<img id="image" width="200" height="200"/>';
- 
-	document.querySelector("#image").src = URL.createObjectURL(gifBlob);
-//	image.src = URL.createObjectURL(gifBlob);
-
-	 Module._clearbuf(gifresult);
-            }
-     }
-	catch(err) {
-     		rc.innerText = err.message;
-		document.getElementById("tw").innerHTML = "";
+		Module._QuICScript_end();
+		inited = 0;
+		message = "state is cleared";
+		document.getElementById("tw").innerHTML = "<textarea readonly >" + message + "</textarea>";
 	}
-*/
 
-      Module._QuICScript_clearbuf(resultstate);
-   } 
+	async function runQuICScript() 
+	{
+		var rc = document.getElementById("ret")
+		var Qnum = document.getElementById("numQubits")
+		var Qcir = document.getElementById("circuit")
 
-    function setChoice(selObj)
-    {
-      var value = selObj.value; 
-      var Qnum = document.getElementById("numQubits")
-      var Qcir = document.getElementById("circuit")
-      if (value == "Custom (for NFT)")
-      {
-        Qnum.value= 5;
-        Qcir.value = "";
-      }
-      else if (value == "Bell")
-      {
-        Qnum.value= 2;
-        Qcir.value = "HI,CN.";
-      }
-      else if (value == "GHZ")
-      {
-        Qnum.value= 3;
-        Qcir.value = "HII,CNI,ICN.";
-      }
-      else if (value == "Simon")
-      {
-        Qnum.value= 4;
-        Qcir.value = "HHII,CINI,CIIN,ICNI,ICIN,IImm,HHII,mmII.";
-      }
-      else if (value == "Grover2")
-      {
-        Qnum.value= 3;
-        Qcir.value = "HHI,IIX,IIH,III,CCN,III,IIH,IIX,HHI,XXI,IHI,CNI,IHI,XXI,HHI."; 
-      }
-      else if (value == "Grover3")
-      {
-        Qnum.value= 4;
-        Qcir.value = "HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI."; 
-      }
-      else if (value == "Shor21")
-      {
-        Qnum.value= 5;
-        Qcir.value = "HHHII,IICIN,ICIIN,IIINC,ICICN,IIINC,IIIIX,CIINC,IIIIX,IIINC,CIICN,IIINC,IIHII,ICpII,CItII,IHIII,CpIII,HIIII."; 
-      }
-      else if (value == "Shor15")
-      {
-        Qnum.value= 7;
-        Qcir.value = "HHHIIII,IICINII,IICIINI,IIICINI,ICINICI,IIICINI,IIIINIC,ICIICIN,HIIIIII,CPIIIII,IHIIIII,CITIIII,ICPIIII,IIHIIII.";
-      }
-      else
-      {
-        Qnum.value= 2;
-        Qcir.value = "HH.";
-      }
+		document.getElementById("qsfilecontent").value= "" ;
+		if (!inited)
+		{
+			Module._QuICScript_begin(Qnum.value);
+			inited = Qnum.value;
+			message = "State is reset, working on "+Qnum.value+" Qubits\n";
+		}
+		else
+		{
+			if (inited != Qnum.value)
+			{
+				Module._QuICScript_end();
+				Module._QuICScript_begin(Qnum.value);
+				inited = Qnum.value;
+				message = "State is reset, working on "+Qnum.value+" Qubits\n";
+			}
+		}
 
-    }
-    </script>
-    <title>QuICScript by pQCee </title>
-  </head>
-  <body>
-    <h1>QuICScript: Quantum in a Browser</h1>
-  <div>
-    <label for="circuit-list">Choose a circuit:</label>
-    <select name="choice" id="choice" onchange="setChoice(this)">
-    <option value="Custom" selected>Custom</option>
-    <option value="Bell">Bell State</option>
-    <option value="GHZ">GHZ 3 Qubit</option>
-    <option value="Simon">Simon s=11</option>
-    <option value="Grover2">Grover 2 Qubit</option>
-    <option value="Grover3">Grover 3 Qubit</option>
-    <option value="Shor21">Shor (factor 21)</option>
-    <option value="Shor15">Shor (factor 15)</option>
-    </select>
-    <p>
-    <small>
-    Number of Qubits: 1 to 8 
-    <ul>
-    Available Gates:
-    <li> <b>X,Y,Z</b> : Pauli-X,Y,Z gate </li>
-    <li> <b>H</b> : Hadamard gate </li>
-    <li> <b>CN</b> : Control Not / Toffoli gate</li>
-    <li> <b>P,T</b> : Phase shift &pi;/2 and &pi;/4 gate </li>
-    <li> <b>I,m</b> : Identity and measure gate </li>
-    <li> <b>,</b> : Intermediate delimiter </li>
-    <li> <b>.</b> : End of circuit </li>
-    </ul>
+		var tokens = Qcir.value.split(" ");
+		if (tokens[1] == null) // no numbers following QuICScript string
+			resultstate= Module.ccall('QuICScript_cont','string',['number','string','number','number','number','number','number','number','number','number'],[Qnum.value,Qcir.value,1,0,0,0,0,0,1,0]);
+		else
+		{
+			resultstate= Module.ccall('QuICScript_cont','string',['number','string','number','number','number','number','number','number','number','number'],[Qnum.value,tokens[0],parseFloat(tokens[1]),parseFloat(tokens[2]),parseFloat(tokens[3]),parseFloat(tokens[4]),parseFloat(tokens[5]),parseFloat(tokens[6]),parseFloat(tokens[7]),parseFloat(tokens[8])]);
+		}
+		message = resultstate + "---\n" + message;  
+		document.getElementById("tw").innerHTML = "<textarea readonly >" + message+ "</textarea>";
 
-    </small>
-  </div>	  
-  <div>
-    Number of Qubits: <input type="number" id="numQubits" min="1" max="8"/>
-    <p>
-    <label for="run">Enter Circuit:</label> <br />
-    <input type="text" id="circuit"  />
-    <button onclick="runQuICScript()">Run QuICScript</button>
-    <p>
-  </div>
-  <div>
-    <p>Result:&nbsp; <label id="ret"></p>
-    <div id=tw> </div>
+	} 
 
-  </div>
+	function fileQuICScript(filehandle)
+	{
+		var QSfile = filehandle.files[0];
+		var fr = new FileReader();
+		fr.readAsText(QSfile);
+		fr.onload = function()
+		{
+			Module['FS_createDataFile']('/', "tempQuICScript.qs", fr.result, true, true, true);
+			document.getElementById("tw").innerHTML = "<textarea readonly >" + "executing QuICScript File\n" + "</textarea>";
+//			document.getElementById("qsfilecontent").innerHTML = "<textarea readonly >" + fr.result + "</textarea>";
+			document.getElementById("qsfilecontent").value= "QuICScript File: \n\n" + fr.result ;
+			var result = Module.ccall('QuICScript_file','string',['string'],["tempQuICScript.qs"]);
+			document.getElementById("tw").innerHTML = "<textarea readonly >" + "Result of File execution:\n"+ result + "</textarea>";
+			Module['FS_unlink']("tempQuICScript.qs");
+			document.getElementById("QSfile").value= "";
+		}
+	}
 
-  <p>&nbsp;</p>
-  <small><small><small>
-			  <p>Copyright pQCee 2022-23. All rights reserved.&nbsp; For enquiries, please contact <a href="mailto:info@pqcee.com"> info@pqcee.com</p> </small></small></small>
-  </body>
+	function setChoice(selObj)
+	{
+		var value = selObj.value; 
+		var Qnum = document.getElementById("numQubits")
+		var Qcir = document.getElementById("circuit")
+		if (value == "Custom")
+		{
+			Qnum.value= 5;
+			Qcir.value = "";
+		}
+		else if (value == "Bell")
+		{
+			Qnum.value= 2;
+			Qcir.value = "HI,CN.";
+		}
+		else if (value == "GHZ")
+		{
+			Qnum.value= 3;
+			Qcir.value = "HII,CNI,ICN.";
+		}
+		else if (value == "Simon")
+		{
+			Qnum.value= 4;
+			Qcir.value = "HHII,CINI,CIIN,ICNI,ICIN,IImm,HHII,mmII.";
+		}
+		else if (value == "Grover2")
+		{
+			Qnum.value= 3;
+			Qcir.value = "HHI,IIX,IIH,III,CCN,III,IIH,IIX,HHI,XXI,IHI,CNI,IHI,XXI,HHI."; 
+		}
+		else if (value == "Grover3")
+		{
+			Qnum.value= 4;
+			Qcir.value = "HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI."; 
+		}
+		else if (value == "Shor21")
+		{
+			Qnum.value= 5;
+			Qcir.value = "HHHII,IICIN,ICIIN,IIINC,ICICN,IIINC,IIIIX,CIINC,IIIIX,IIINC,CIICN,IIINC,IIHII,ICpII,CItII,IHIII,CpIII,HIIII."; 
+		}
+		else if (value == "Shor15")
+		{
+			Qnum.value= 7;
+			Qcir.value = "HHHIIII,IICINII,IICIINI,IIICINI,ICINICI,IIICINI,IIIINIC,ICIICIN,HIIIIII,CPIIIII,IHIIIII,CITIIII,ICPIIII,IIHIIII.";
+		}
+		else
+		{
+			Qnum.value= 2;
+			Qcir.value = "HH.";
+		}
+	}
+	</script>
+	<title>QuICScript by pQCee </title>
+	</head>
+	<body>
+		<h1>QuICScript: Quantum in a Browser</h1>
+		<div>
+			<h3> File-based</h3>
+			<small>
+			<ul>
+			File format:
+				<li> line 1 : # &lt;number of qubits&gt;</li>
+				<li> line 2 onwards : &lt;QuICScript&gt;</li>
+				<li> loops: {L &lt;number of loops&gt; &lt;QuICScript&gt; }</li>
+			</ul>
+			</small>
+			<p>Upload QuICScript file: <input id="QSfile" type="file" onChange={fileQuICScript(this)} /> </p>
+			<p>
+			<textarea readonly id=qsfilecontent> </textarea>
+			<p>
+		</div>
+		<div>
+			<h3> Interactive </h3>
+			<label id="circuitlist" for="circuit-list">Choose a circuit:</label>
+			<select name="choice" id="choice" onchange="setChoice(this)">
+				<option value="Custom" selected>Custom</option>
+				<option value="Bell">Bell State</option>
+				<option value="GHZ">GHZ 3 Qubit</option>
+				<option value="Simon">Simon s=11</option>
+				<option value="Grover2">Grover 2 Qubit</option>
+				<option value="Grover3">Grover 3 Qubit</option>
+				<option value="Shor21">Shor (factor 21)</option>
+				<option value="Shor15">Shor (factor 15)</option>
+			</select>
+			<p>
+			Number of Qubits: <input type="number" id="numQubits" min="1" max="20"/>
+			<p>
+			<label for="run">Enter Circuit:</label> <br />
+			<input type="text" id="circuit"  />
+			<button onclick="runQuICScript()">Run QuICScript</button>
+			<button onclick="resetQuICScript()">Reset State</button>
+			<p>
+			<ul>
+				Available Gates:
+				<li> <b>X,Y,Z</b> : Pauli-X,Y,Z gate </li>
+				<li> <b>H</b> : Hadamard gate </li>
+				<li> <b>CN</b> : Control Not / Toffoli gate</li>
+				<li> <b>P,T</b> : Phase shift &pi;/2 and &pi;/4 gate </li>
+				<li> <b>I,m</b> : Identity and measure gate </li>
+				<li> <b>J</b> : QuICScript universal gate</li>
+				<li> <b>,</b> : Intermediate delimiter </li>
+				<li> <b>.</b> : End of circuit </li>
+			</ul>
+			<small><small>
+			To run J gate, please include 8 numbers representing X1_real, X1_imag, Y1_real, Y1_imag, X2_real, X2_imag, Y2_real, Y2_imag after the QuICScript string, e.g. "IJI 0 0 1 0 1 0 0 0" for a X gate on Qubit 2
+			</small></small>
+		</div>	  
+		<div>
+			<h3>Results</h3>
+			<div id=tw> </div>
+
+		</div>
+  		<p>&nbsp;</p>
+		<small><small><small>
+			<p>Copyright pQCee 2022-24. All rights reserved.&nbsp; For enquiries, please contact <a href="mailto:info@pqcee.com"> info@pqcee.com</p> </small></small></small>
+	</body>
 </html>

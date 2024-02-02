@@ -1,0 +1,6 @@
+# 4 (file to run 3 qubit grover)
+{L 2
+HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,
+}
+HHHI,
+IIId.

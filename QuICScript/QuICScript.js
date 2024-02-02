@@ -929,49 +929,9 @@ function warnOnce(text) {
  }
 }
 
-function _emscripten_date_now() {
- return Date.now();
-}
-
-function _emscripten_memcpy_big(dest, src, num) {
- HEAPU8.copyWithin(dest >>> 0, src >>> 0, src + num >>> 0);
-}
-
-function getHeapMax() {
- return 4294901760;
-}
-
-function emscripten_realloc_buffer(size) {
- try {
-  wasmMemory.grow(size - buffer.byteLength + 65535 >>> 16);
-  updateGlobalBufferAndViews(wasmMemory.buffer);
-  return 1;
- } catch (e) {
-  err("emscripten_realloc_buffer: Attempted to grow heap from " + buffer.byteLength + " bytes to " + size + " bytes, but got error: " + e);
- }
-}
-
-function _emscripten_resize_heap(requestedSize) {
- var oldSize = HEAPU8.length;
- requestedSize = requestedSize >>> 0;
- assert(requestedSize > oldSize);
- var maxHeapSize = getHeapMax();
- if (requestedSize > maxHeapSize) {
-  err("Cannot enlarge memory, asked to go up to " + requestedSize + " bytes, but the limit is " + maxHeapSize + " bytes!");
-  return false;
- }
- let alignUp = (x, multiple) => x + (multiple - x % multiple) % multiple;
- for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
-  var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
-  overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
-  var newSize = Math.min(maxHeapSize, alignUp(Math.max(requestedSize, overGrownHeapSize), 65536));
-  var replacement = emscripten_realloc_buffer(newSize);
-  if (replacement) {
-   return true;
-  }
- }
- err("Failed to grow the heap from " + oldSize + " bytes to " + newSize + " bytes, not enough memory!");
- return false;
+function setErrNo(value) {
+ HEAP32[___errno_location() >>> 2] = value;
+ return value;
 }
 
 var PATH = {
@@ -3427,6 +3387,189 @@ var SYSCALLS = {
  }
 };
 
+function ___syscall_fcntl64(fd, cmd, varargs) {
+ SYSCALLS.varargs = varargs;
+ try {
+  var stream = SYSCALLS.getStreamFromFD(fd);
+  switch (cmd) {
+  case 0:
+   {
+    var arg = SYSCALLS.get();
+    if (arg < 0) {
+     return -28;
+    }
+    var newStream;
+    newStream = FS.createStream(stream, arg);
+    return newStream.fd;
+   }
+
+  case 1:
+  case 2:
+   return 0;
+
+  case 3:
+   return stream.flags;
+
+  case 4:
+   {
+    var arg = SYSCALLS.get();
+    stream.flags |= arg;
+    return 0;
+   }
+
+  case 5:
+   {
+    var arg = SYSCALLS.get();
+    var offset = 0;
+    HEAP16[arg + offset >>> 1] = 2;
+    return 0;
+   }
+
+  case 6:
+  case 7:
+   return 0;
+
+  case 16:
+  case 8:
+   return -28;
+
+  case 9:
+   setErrNo(28);
+   return -1;
+
+  default:
+   {
+    return -28;
+   }
+  }
+ } catch (e) {
+  if (typeof FS == "undefined" || !(e instanceof FS.ErrnoError)) throw e;
+  return -e.errno;
+ }
+}
+
+function ___syscall_ioctl(fd, op, varargs) {
+ SYSCALLS.varargs = varargs;
+ try {
+  var stream = SYSCALLS.getStreamFromFD(fd);
+  switch (op) {
+  case 21509:
+  case 21505:
+   {
+    if (!stream.tty) return -59;
+    return 0;
+   }
+
+  case 21510:
+  case 21511:
+  case 21512:
+  case 21506:
+  case 21507:
+  case 21508:
+   {
+    if (!stream.tty) return -59;
+    return 0;
+   }
+
+  case 21519:
+   {
+    if (!stream.tty) return -59;
+    var argp = SYSCALLS.get();
+    HEAP32[argp >>> 2] = 0;
+    return 0;
+   }
+
+  case 21520:
+   {
+    if (!stream.tty) return -59;
+    return -28;
+   }
+
+  case 21531:
+   {
+    var argp = SYSCALLS.get();
+    return FS.ioctl(stream, op, argp);
+   }
+
+  case 21523:
+   {
+    if (!stream.tty) return -59;
+    return 0;
+   }
+
+  case 21524:
+   {
+    if (!stream.tty) return -59;
+    return 0;
+   }
+
+  default:
+   return -28;
+  }
+ } catch (e) {
+  if (typeof FS == "undefined" || !(e instanceof FS.ErrnoError)) throw e;
+  return -e.errno;
+ }
+}
+
+function ___syscall_openat(dirfd, path, flags, varargs) {
+ SYSCALLS.varargs = varargs;
+ try {
+  path = SYSCALLS.getStr(path);
+  path = SYSCALLS.calculateAt(dirfd, path);
+  var mode = varargs ? SYSCALLS.get() : 0;
+  return FS.open(path, flags, mode).fd;
+ } catch (e) {
+  if (typeof FS == "undefined" || !(e instanceof FS.ErrnoError)) throw e;
+  return -e.errno;
+ }
+}
+
+function _emscripten_date_now() {
+ return Date.now();
+}
+
+function _emscripten_memcpy_big(dest, src, num) {
+ HEAPU8.copyWithin(dest >>> 0, src >>> 0, src + num >>> 0);
+}
+
+function getHeapMax() {
+ return 4294901760;
+}
+
+function emscripten_realloc_buffer(size) {
+ try {
+  wasmMemory.grow(size - buffer.byteLength + 65535 >>> 16);
+  updateGlobalBufferAndViews(wasmMemory.buffer);
+  return 1;
+ } catch (e) {
+  err("emscripten_realloc_buffer: Attempted to grow heap from " + buffer.byteLength + " bytes to " + size + " bytes, but got error: " + e);
+ }
+}
+
+function _emscripten_resize_heap(requestedSize) {
+ var oldSize = HEAPU8.length;
+ requestedSize = requestedSize >>> 0;
+ assert(requestedSize > oldSize);
+ var maxHeapSize = getHeapMax();
+ if (requestedSize > maxHeapSize) {
+  err("Cannot enlarge memory, asked to go up to " + requestedSize + " bytes, but the limit is " + maxHeapSize + " bytes!");
+  return false;
+ }
+ let alignUp = (x, multiple) => x + (multiple - x % multiple) % multiple;
+ for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
+  var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
+  overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
+  var newSize = Math.min(maxHeapSize, alignUp(Math.max(requestedSize, overGrownHeapSize), 65536));
+  var replacement = emscripten_realloc_buffer(newSize);
+  if (replacement) {
+   return true;
+  }
+ }
+ err("Failed to grow the heap from " + oldSize + " bytes to " + newSize + " bytes, not enough memory!");
+ return false;
+}
+
 function _proc_exit(code) {
  EXITSTATUS = code;
  if (!keepRuntimeAlive()) {
@@ -3452,6 +3595,32 @@ function _fd_close(fd) {
  try {
   var stream = SYSCALLS.getStreamFromFD(fd);
   FS.close(stream);
+  return 0;
+ } catch (e) {
+  if (typeof FS == "undefined" || !(e instanceof FS.ErrnoError)) throw e;
+  return e.errno;
+ }
+}
+
+function doReadv(stream, iov, iovcnt, offset) {
+ var ret = 0;
+ for (var i = 0; i < iovcnt; i++) {
+  var ptr = HEAPU32[iov >>> 2];
+  var len = HEAPU32[iov + 4 >>> 2];
+  iov += 8;
+  var curr = FS.read(stream, HEAP8, ptr, len, offset);
+  if (curr < 0) return -1;
+  ret += curr;
+  if (curr < len) break;
+ }
+ return ret;
+}
+
+function _fd_read(fd, iov, iovcnt, pnum) {
+ try {
+  var stream = SYSCALLS.getStreamFromFD(fd);
+  var num = doReadv(stream, iov, iovcnt);
+  HEAPU32[pnum >>> 2] = num;
   return 0;
  } catch (e) {
   if (typeof FS == "undefined" || !(e instanceof FS.ErrnoError)) throw e;
@@ -3810,11 +3979,15 @@ function checkIncomingModuleAPI() {
 }
 
 var asmLibraryArg = {
+ "__syscall_fcntl64": ___syscall_fcntl64,
+ "__syscall_ioctl": ___syscall_ioctl,
+ "__syscall_openat": ___syscall_openat,
  "emscripten_date_now": _emscripten_date_now,
  "emscripten_memcpy_big": _emscripten_memcpy_big,
  "emscripten_resize_heap": _emscripten_resize_heap,
  "exit": _exit,
  "fd_close": _fd_close,
+ "fd_read": _fd_read,
  "fd_seek": _fd_seek,
  "fd_write": _fd_write
 };
@@ -3827,9 +4000,15 @@ var _free = Module["_free"] = createExportWrapper("free");
 
 var _malloc = Module["_malloc"] = createExportWrapper("malloc");
 
-var _QuICScript_run = Module["_QuICScript_run"] = createExportWrapper("QuICScript_run");
+var _QuICScript_file = Module["_QuICScript_file"] = createExportWrapper("QuICScript_file");
 
 var _QuICScript_clearbuf = Module["_QuICScript_clearbuf"] = createExportWrapper("QuICScript_clearbuf");
+
+var _QuICScript_begin = Module["_QuICScript_begin"] = createExportWrapper("QuICScript_begin");
+
+var _QuICScript_cont = Module["_QuICScript_cont"] = createExportWrapper("QuICScript_cont");
+
+var _QuICScript_end = Module["_QuICScript_end"] = createExportWrapper("QuICScript_end");
 
 var ___errno_location = Module["___errno_location"] = createExportWrapper("__errno_location");
 
@@ -3885,7 +4064,7 @@ var unexportedRuntimeSymbols = [ "run", "UTF8ArrayToString", "UTF8ToString", "st
 
 unexportedRuntimeSymbols.forEach(unexportedRuntimeSymbol);
 
-var missingLibrarySymbols = [ "stringToNewUTF8", "setErrNo", "inetPton4", "inetNtop4", "inetPton6", "inetNtop6", "readSockaddr", "writeSockaddr", "getHostByName", "traverseStack", "convertPCtoSourceLocation", "readEmAsmArgs", "runEmAsmFunction", "runMainThreadEmAsm", "jstoi_q", "jstoi_s", "getExecutableName", "listenOnce", "autoResumeAudioContext", "dynCallLegacy", "getDynCaller", "dynCall", "handleException", "runtimeKeepalivePush", "runtimeKeepalivePop", "callUserCallback", "maybeExit", "safeSetTimeout", "asmjsMangle", "writeI53ToI64", "writeI53ToI64Clamped", "writeI53ToI64Signaling", "writeI53ToU64Clamped", "writeI53ToU64Signaling", "readI53FromI64", "readI53FromU64", "convertI32PairToI53", "convertU32PairToI53", "cwrap", "uleb128Encode", "sigToWasmTypes", "generateFuncType", "convertJsFunctionToWasm", "getEmptyTableSlot", "updateTableMap", "addFunction", "removeFunction", "reallyNegative", "unSign", "strLen", "reSign", "formatString", "intArrayToString", "AsciiToString", "stringToAscii", "UTF16ToString", "stringToUTF16", "lengthBytesUTF16", "UTF32ToString", "stringToUTF32", "lengthBytesUTF32", "allocateUTF8", "allocateUTF8OnStack", "writeStringToMemory", "writeAsciiToMemory", "getSocketFromFD", "getSocketAddress", "registerKeyEventCallback", "maybeCStringToJsString", "findEventTarget", "findCanvasEventTarget", "getBoundingClientRect", "fillMouseEventData", "registerMouseEventCallback", "registerWheelEventCallback", "registerUiEventCallback", "registerFocusEventCallback", "fillDeviceOrientationEventData", "registerDeviceOrientationEventCallback", "fillDeviceMotionEventData", "registerDeviceMotionEventCallback", "screenOrientation", "fillOrientationChangeEventData", "registerOrientationChangeEventCallback", "fillFullscreenChangeEventData", "registerFullscreenChangeEventCallback", "JSEvents_requestFullscreen", "JSEvents_resizeCanvasForFullscreen", "registerRestoreOldStyle", "hideEverythingExceptGivenElement", "restoreHiddenElements", "setLetterbox", "softFullscreenResizeWebGLRenderTarget", "doRequestFullscreen", "fillPointerlockChangeEventData", "registerPointerlockChangeEventCallback", "registerPointerlockErrorEventCallback", "requestPointerLock", "fillVisibilityChangeEventData", "registerVisibilityChangeEventCallback", "registerTouchEventCallback", "fillGamepadEventData", "registerGamepadEventCallback", "registerBeforeUnloadEventCallback", "fillBatteryEventData", "battery", "registerBatteryEventCallback", "setCanvasElementSize", "getCanvasElementSize", "jsStackTrace", "stackTrace", "getEnvStrings", "checkWasiClock", "doReadv", "createDyncallWrapper", "setImmediateWrapped", "clearImmediateWrapped", "polyfillSetImmediate", "ExceptionInfo", "exception_addRef", "exception_decRef", "setMainLoop", "_setNetworkCallback", "heapObjectForWebGLType", "heapAccessShiftForWebGLHeap", "emscriptenWebGLGet", "computeUnpackAlignedImageSize", "emscriptenWebGLGetTexPixelData", "emscriptenWebGLGetUniform", "webglGetUniformLocation", "webglPrepareUniformLocationsBeforeFirstUse", "webglGetLeftBracePos", "emscriptenWebGLGetVertexAttrib", "writeGLArray", "SDL_unicode", "SDL_ttfContext", "SDL_audio", "GLFW_Window", "runAndAbortIfError", "ALLOC_NORMAL", "ALLOC_STACK", "allocate" ];
+var missingLibrarySymbols = [ "stringToNewUTF8", "inetPton4", "inetNtop4", "inetPton6", "inetNtop6", "readSockaddr", "writeSockaddr", "getHostByName", "traverseStack", "convertPCtoSourceLocation", "readEmAsmArgs", "runEmAsmFunction", "runMainThreadEmAsm", "jstoi_q", "jstoi_s", "getExecutableName", "listenOnce", "autoResumeAudioContext", "dynCallLegacy", "getDynCaller", "dynCall", "handleException", "runtimeKeepalivePush", "runtimeKeepalivePop", "callUserCallback", "maybeExit", "safeSetTimeout", "asmjsMangle", "writeI53ToI64", "writeI53ToI64Clamped", "writeI53ToI64Signaling", "writeI53ToU64Clamped", "writeI53ToU64Signaling", "readI53FromI64", "readI53FromU64", "convertI32PairToI53", "convertU32PairToI53", "cwrap", "uleb128Encode", "sigToWasmTypes", "generateFuncType", "convertJsFunctionToWasm", "getEmptyTableSlot", "updateTableMap", "addFunction", "removeFunction", "reallyNegative", "unSign", "strLen", "reSign", "formatString", "intArrayToString", "AsciiToString", "stringToAscii", "UTF16ToString", "stringToUTF16", "lengthBytesUTF16", "UTF32ToString", "stringToUTF32", "lengthBytesUTF32", "allocateUTF8", "allocateUTF8OnStack", "writeStringToMemory", "writeAsciiToMemory", "getSocketFromFD", "getSocketAddress", "registerKeyEventCallback", "maybeCStringToJsString", "findEventTarget", "findCanvasEventTarget", "getBoundingClientRect", "fillMouseEventData", "registerMouseEventCallback", "registerWheelEventCallback", "registerUiEventCallback", "registerFocusEventCallback", "fillDeviceOrientationEventData", "registerDeviceOrientationEventCallback", "fillDeviceMotionEventData", "registerDeviceMotionEventCallback", "screenOrientation", "fillOrientationChangeEventData", "registerOrientationChangeEventCallback", "fillFullscreenChangeEventData", "registerFullscreenChangeEventCallback", "JSEvents_requestFullscreen", "JSEvents_resizeCanvasForFullscreen", "registerRestoreOldStyle", "hideEverythingExceptGivenElement", "restoreHiddenElements", "setLetterbox", "softFullscreenResizeWebGLRenderTarget", "doRequestFullscreen", "fillPointerlockChangeEventData", "registerPointerlockChangeEventCallback", "registerPointerlockErrorEventCallback", "requestPointerLock", "fillVisibilityChangeEventData", "registerVisibilityChangeEventCallback", "registerTouchEventCallback", "fillGamepadEventData", "registerGamepadEventCallback", "registerBeforeUnloadEventCallback", "fillBatteryEventData", "battery", "registerBatteryEventCallback", "setCanvasElementSize", "getCanvasElementSize", "jsStackTrace", "stackTrace", "getEnvStrings", "checkWasiClock", "createDyncallWrapper", "setImmediateWrapped", "clearImmediateWrapped", "polyfillSetImmediate", "ExceptionInfo", "exception_addRef", "exception_decRef", "setMainLoop", "_setNetworkCallback", "heapObjectForWebGLType", "heapAccessShiftForWebGLHeap", "emscriptenWebGLGet", "computeUnpackAlignedImageSize", "emscriptenWebGLGetTexPixelData", "emscriptenWebGLGetUniform", "webglGetUniformLocation", "webglPrepareUniformLocationsBeforeFirstUse", "webglGetLeftBracePos", "emscriptenWebGLGetVertexAttrib", "writeGLArray", "SDL_unicode", "SDL_ttfContext", "SDL_audio", "GLFW_Window", "runAndAbortIfError", "ALLOC_NORMAL", "ALLOC_STACK", "allocate" ];
 
 missingLibrarySymbols.forEach(missingLibrarySymbol);
 
