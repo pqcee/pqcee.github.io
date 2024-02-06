@@ -1,3 +1,8 @@
 # 3
-HII,CNI,ICN,
-IId.
+{L 3 
+HII,CNI,ICN
+}
+{J 0 0 1 0 1 0 0 0 }
+IIJ,
+IIX.
+
