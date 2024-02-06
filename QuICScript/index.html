@@ -240,12 +240,14 @@
 				<li> <b>CN</b> : Control Not / Toffoli gate</li>
 				<li> <b>P,T</b> : Phase shift &pi;/2 and &pi;/4 gate </li>
 				<li> <b>I,m</b> : Identity and measure gate </li>
-				<li> <b>J</b> : QuICScript universal gate</li>
+				<li> <b>J,U</b> : QuICScript universal gate</li>
 				<li> <b>,</b> : Intermediate delimiter </li>
 				<li> <b>.</b> : End of circuit </li>
 			</ul>
 			<small><small>
 			To run J gate, please include 8 numbers representing X1_real, X1_imag, Y1_real, Y1_imag, X2_real, X2_imag, Y2_real, Y2_imag after the QuICScript string, e.g. "IJI 0 0 1 0 1 0 0 0" for a X gate on Qubit 2
+			<br>
+			To run U gate, please include 5 numbers representing theta, 0, phi, 0, lamda after the QuICScript string, e.g. "IUI 1.78 0 1.0 0 3.14" 
 			</small></small>
 		</div>	  
 		<div>
