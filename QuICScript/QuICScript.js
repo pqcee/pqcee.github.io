@@ -4010,6 +4010,8 @@ var _QuICScript_cont = Module["_QuICScript_cont"] = createExportWrapper("QuICScr
 
 var _QuICScript_end = Module["_QuICScript_end"] = createExportWrapper("QuICScript_end");
 
+var _QuICScript_Qibo = Module["_QuICScript_Qibo"] = createExportWrapper("QuICScript_Qibo");
+
 var ___errno_location = Module["___errno_location"] = createExportWrapper("__errno_location");
 
 var _fflush = Module["_fflush"] = createExportWrapper("fflush");
