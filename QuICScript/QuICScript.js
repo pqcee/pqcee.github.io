@@ -4004,6 +4004,8 @@ var _QuICScript_file = Module["_QuICScript_file"] = createExportWrapper("QuICScr
 
 var _QuICScript_clearbuf = Module["_QuICScript_clearbuf"] = createExportWrapper("QuICScript_clearbuf");
 
+var _QuICScript_setState = Module["_QuICScript_setState"] = createExportWrapper("QuICScript_setState");
+
 var _QuICScript_begin = Module["_QuICScript_begin"] = createExportWrapper("QuICScript_begin");
 
 var _QuICScript_cont = Module["_QuICScript_cont"] = createExportWrapper("QuICScript_cont");
