@@ -56,7 +56,7 @@
 				border: none;
 				outline: none;
 			}
-      			div {
+      div {
 				width: 30%;
 				vertical-align: text-top;
 				margin: 10px auto;
@@ -204,7 +204,7 @@
 				<li> line 1 : # &lt;number of qubits&gt;</li>
 				<li> line 2 onwards : &lt;QuICScript&gt;</li>
 				<li> loops: {L &lt;number of loops&gt; &lt;QuICScript&gt; }</li>
-				<li> example: <a href="test.txt" target="_blank" >test</a> <a href="grover2.txt" target="_blank" >grover2</a> <a href="grover3.txt" target="_blank">grover3</a> </li>
+				<li> example: <a href="test.txt" target="_blank" >test</a> <a href="grover2.txt" target="_blank" >grover2</a> <a href="grover3.txt" target="_blank">grover3</a> <a href="shors_15_2_7r.txt" target="_blank">shors15</a> <a href="shors_21_2_7r.txt" target="_blank">shors21</a> </li>
 			</ul>
 			</small>
 			<p>Upload QuICScript file: <input id="QSfile" type="file" onChange={fileQuICScript(this)} /> </p>
@@ -237,7 +237,8 @@
 				Available Gates:
 				<li> <b>X,Y,Z</b> : Pauli-X,Y,Z gate </li>
 				<li> <b>H</b> : Hadamard gate </li>
-				<li> <b>CN</b> : Control Not / Toffoli gate</li>
+				<li> <b>CN</b> : Controlled NOT gate </li>
+        <li> <b>CCN</b> : Toffoli gate </li>
 				<li> <b>P,T</b> : Phase shift &pi;/2 and &pi;/4 gate </li>
 				<li> <b>I,m</b> : Identity and measure gate </li>
 				<li> <b>J,U</b> : QuICScript universal gate</li>
