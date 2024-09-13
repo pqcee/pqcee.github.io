@@ -109,11 +109,15 @@ const defaultIframeSrc =
 
 function sendCircuitToIFrame(quicscript) {
   var iframe = document.getElementById("circuitIframe");
-  iframe.src = defaultIframeSrc + `&quicscript=${quicscript}`;
+  iframe.src =
+    defaultIframeSrc + (quicscript == "" ? "" : `&quicscript=${quicscript}`);
 }
+
+const defaultSelect = "Bell";
 
 window.onload = () => {
   const iframe = document.getElementById("circuitIframe");
   iframe.src = defaultIframeSrc;
+  sendCircuitToIFrame(circuitsData[defaultSelect].quicscript);
   iframe.style.display = "block";
 };

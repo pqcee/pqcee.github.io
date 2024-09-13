@@ -54,8 +54,8 @@
         <div class="section-action">
           <label id="circuitlist" for="circuit-list">Choose a circuit:</label>
           <select name="choice" id="choice" onchange="setChoice(this)">
-            <option value="Custom" selected>Custom</option>
-            <option value="Bell">Bell State</option>
+            <option value="Custom">Custom</option>
+            <option value="Bell" selected>Bell State</option>
             <option value="GHZ">GHZ 3 Qubit</option>
             <option value="Simon">Simon s=11</option>
             <option value="Grover2">Grover 2 Qubit</option>
@@ -130,8 +130,8 @@
             <li><b>J,U</b> : QuICScript universal gate</li>
             <li><b>,</b> : Intermediate delimiter</li>
             <li><b>.</b> : End of circuit (Output Decimal)</li>
-            <li><b>:</b> : End of circuit (Output Binary/Big Endian)</li>
-            <li><b>~</b> : End of circuit (Output InvBinary/Little Endian)</li>
+            <li><b>:</b> : End of circuit (Output Binary Big Endian)</li>
+            <li><b>~</b> : End of circuit (Output Binary Little Endian)</li>
             <small>
               To run J gate, please include 8 numbers representing X1_real,
               X1_imag, Y1_real, Y1_imag, X2_real, X2_imag, Y2_real, Y2_imag
