@@ -73,3 +73,16 @@ button {
 #fileButton:hover {
   background: rgba(255, 222, 173, 0.445);
 }
+
+.section-two {
+  display: flex;
+  margin: 0 10%;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+@media screen and (max-width: 650px) {
+  .section-two {
+    display: block;
+  }
+}

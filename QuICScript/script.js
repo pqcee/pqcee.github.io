@@ -96,28 +96,49 @@ function setChoice(selObj) {
   sendCircuitToIFrame(quicscript);
 }
 
-const defaultConfig = {
-  qubits: 5,
-  columns: 8,
-  qibo: false,
-  input: true,
-};
+let config = {};
 
-const defaultIframeSrc =
-  "https://pqcee.github.io/quicscript-dev-react/?" +
-  configToPrama(defaultConfig);
+const rootIFrameSrc = "https://pqceequicscriptdev.z23.web.core.windows.net/";
 
+/**
+ * @param {string} quicscript
+ */
 function sendCircuitToIFrame(quicscript) {
-  var iframe = document.getElementById("circuitIframe");
-  iframe.src =
-    defaultIframeSrc + (quicscript == "" ? "" : `&quicscript=${quicscript}`);
+  config.quicscript = quicscript;
+  paramsToIFrame(config);
 }
 
-const defaultSelect = "Bell";
+/**
+ * @param {Object} params
+ */
+function paramsToIFrame(params) {
+  let iframe = document.getElementById("circuitIframe");
+  let iframeSrc = rootIFrameSrc;
+  if (Object.keys(params).length > 0) iframeSrc += "?" + configToPrama(config);
+  iframe.src = iframeSrc;
+}
+
+function getParams() {
+  const params = {};
+  for (const [k, v] of new URLSearchParams(window.location.search).entries()) {
+    params[k] = v;
+  }
+  return params;
+}
 
 window.onload = () => {
-  const iframe = document.getElementById("circuitIframe");
-  iframe.src = defaultIframeSrc;
-  sendCircuitToIFrame(circuitsData[defaultSelect].quicscript);
-  iframe.style.display = "block";
+  config.quicscript = circuitsData["Bell"].quicscript;
+
+  /** Load params */
+  const params = getParams();
+
+  /** If params.quicscript exists, switch to customs */
+  if (params.quicscript) {
+    document.getElementById("choice").value = "Custom";
+  }
+  config = { ...config, ...params };
+
+  /** Load iframe */
+  paramsToIFrame(config);
+  document.getElementById("circuitIframe").style.display = "block";
 };
