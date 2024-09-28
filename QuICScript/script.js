@@ -96,7 +96,10 @@ function setChoice(selObj) {
   sendCircuitToIFrame(quicscript);
 }
 
-let config = {};
+let config = {
+  qubits: 5,
+  columns: 8,
+};
 
 const rootIFrameSrc = "https://pqceequicscriptdev.z23.web.core.windows.net/";
 
