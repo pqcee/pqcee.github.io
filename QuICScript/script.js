@@ -96,7 +96,10 @@ function setChoice(selObj) {
   sendCircuitToIFrame(quicscript);
 }
 
-let config = {};
+let config = {
+  qubits: 5,
+  columns: 8,
+};
 
 const rootIFrameSrc = "./react/index.html";
 
