@@ -98,7 +98,7 @@ function setChoice(selObj) {
 
 let config = {};
 
-const rootIFrameSrc = "https://pqceequicscriptdev.z23.web.core.windows.net/";
+const rootIFrameSrc = "./react/index.html";
 
 /**
  * @param {string} quicscript
