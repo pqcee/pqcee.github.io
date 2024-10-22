@@ -3996,9 +3996,9 @@ var asm = createWasm();
 
 var ___wasm_call_ctors = Module["___wasm_call_ctors"] = createExportWrapper("__wasm_call_ctors");
 
-var _free = Module["_free"] = createExportWrapper("free");
-
 var _malloc = Module["_malloc"] = createExportWrapper("malloc");
+
+var _free = Module["_free"] = createExportWrapper("free");
 
 var _QuICScript_file = Module["_QuICScript_file"] = createExportWrapper("QuICScript_file");
 
