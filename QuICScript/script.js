@@ -136,6 +136,9 @@ function addNavigationLink() {
     "This site is deprecated, please visit the new QuICScript site.";
   link.style.display = "block";
   link.style.margin = "10px 0";
+
+  // Add to top of page or wherever you want
+  document.body.insertBefore(link, document.body.firstChild);
 }
 
 window.onload = () => {
