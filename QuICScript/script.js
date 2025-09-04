@@ -129,6 +129,15 @@ function getParams() {
   return params;
 }
 
+function addNavigationLink() {
+  const link = document.createElement("a");
+  link.href = "https://quicscript.pqcee.com";
+  link.textContent =
+    "This site is deprecated, please visit the new QuICScript site.";
+  link.style.display = "block";
+  link.style.margin = "10px 0";
+}
+
 window.onload = () => {
   config.quicscript = circuitsData["Bell"].quicscript;
 
@@ -144,4 +153,7 @@ window.onload = () => {
   /** Load iframe */
   paramsToIFrame(config);
   document.getElementById("circuitIframe").style.display = "block";
+
+  /** Add navigation link */
+  addNavigationLink();
 };
