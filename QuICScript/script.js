@@ -180,7 +180,7 @@ function addNavigationLink(delaySeconds = 5) {
       link.textContent = `This site is deprecated. Redirecting to the new QuICScript site in ${remaining} seconds...`;
     } else {
       clearInterval(countdown);
-      window.location.href = "https://quicscript.pqcee.com";
+      window.location.href = newUrl;
     }
   }, 1000);
 
