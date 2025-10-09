@@ -211,5 +211,5 @@ window.onload = () => {
   document.getElementById("circuitIframe").style.display = "block";
 
   /** Add navigation link */
-  addNavigationLink();
+  addNavigationLink(30);
 };
