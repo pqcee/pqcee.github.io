@@ -129,16 +129,63 @@ function getParams() {
   return params;
 }
 
-function addNavigationLink() {
+function addNavigationLink(delaySeconds = 5) {
   const link = document.createElement("a");
   link.href = "https://quicscript.pqcee.com";
-  link.textContent =
-    "This site is deprecated, please visit the new QuICScript site.";
-  link.style.display = "block";
-  link.style.margin = "10px 0";
+  link.textContent = `This site is deprecated. Redirecting to the new QuICScript site in ${delaySeconds} seconds...`;
 
-  // Add to top of page or wherever you want
+  // Styling
+  link.style.cssText = `
+    display: block;
+    margin: 0;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-decoration: none;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border-bottom: 3px solid rgba(0, 0, 0, 0.1);
+  `;
+
+  // Hover effect
+  link.addEventListener("mouseenter", () => {
+    link.style.background = "linear-gradient(135deg, #764ba2 0%, #667eea 100%)";
+    link.style.transform = "translateY(-2px)";
+    link.style.boxShadow = "0 6px 12px rgba(0, 0, 0, 0.15)";
+  });
+
+  link.addEventListener("mouseleave", () => {
+    link.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+    link.style.transform = "translateY(0)";
+    link.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+  });
+
+  // Add to top of page
   document.body.insertBefore(link, document.body.firstChild);
+
+  // Countdown timer
+  let remaining = delaySeconds;
+  const countdown = setInterval(() => {
+    remaining--;
+    if (remaining > 0) {
+      link.textContent = `This site is deprecated. Redirecting to the new QuICScript site in ${remaining} seconds...`;
+    } else {
+      clearInterval(countdown);
+      window.location.href = "https://quicscript.pqcee.com";
+    }
+  }, 1000);
+
+  // Allow user to click link to redirect immediately
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    clearInterval(countdown);
+    window.location.href = link.href;
+  });
 }
 
 window.onload = () => {
