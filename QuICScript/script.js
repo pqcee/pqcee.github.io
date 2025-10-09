@@ -134,6 +134,8 @@ function addNavigationLink(delaySeconds = 5) {
   const queryParams = window.location.search;
   const newUrl = `https://quicscript.pqcee.com${queryParams}`;
 
+  console.log(newUrl);
+
   const link = document.createElement("a");
   link.href = newUrl;
   link.textContent = `This site is deprecated. Redirecting to the new QuICScript site in ${delaySeconds} seconds...`;
