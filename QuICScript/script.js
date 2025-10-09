@@ -130,8 +130,12 @@ function getParams() {
 }
 
 function addNavigationLink(delaySeconds = 5) {
+  // Get current query parameters
+  const queryParams = window.location.search;
+  const newUrl = `https://quicscript.pqcee.com${queryParams}`;
+
   const link = document.createElement("a");
-  link.href = "https://quicscript.pqcee.com";
+  link.href = newUrl;
   link.textContent = `This site is deprecated. Redirecting to the new QuICScript site in ${delaySeconds} seconds...`;
 
   // Styling
